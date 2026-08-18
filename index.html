@@ -1,0 +1,1547 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Un platformer în patru niveluri gândit de Anabelle: bănuți prin supermarket, croitorie, salon, vrăjitorul care o face zână, și zborul prin nori la castelul prințesei.">
+<meta name="theme-color" content="#FDF3E3">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%91%97%3C/text%3E%3C/svg%3E">
+<title>Aventura Anabellei</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700&display=swap">
+
+<style>
+:root{
+  --ink:#2E2438;
+  --ink-soft:rgba(46,36,56,.55);
+  --bg:#FDF3E3;
+  --paper:#FFF7EC;
+  --paper-2:#F7E4CC;
+  --mint:#BFE7DE;
+  --coin:#FFC93C;
+  --coin-dark:#E39B12;
+  --rose:#F58BB0;
+  --grape:#7B5CD6;
+  --danger:#E5566A;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  background:var(--bg);
+  background-image:radial-gradient(circle at 18% 12%, #FFE7C4 0%, transparent 45%),
+                   radial-gradient(circle at 84% 82%, #E7DCF6 0%, transparent 50%);
+  color:var(--ink);
+  font-family:'Nunito',ui-rounded,system-ui,sans-serif;
+  min-height:100vh; min-height:100dvh;
+  display:grid; place-items:center;
+  padding:clamp(8px,2vw,22px);
+}
+
+.shell{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%}
+
+.stage{
+  position:relative;
+  width:min(100%, calc((100dvh - 128px) * 16 / 9));
+  aspect-ratio:16/9;
+  container-type:size;
+  border:3px solid var(--ink);
+  border-radius:18px;
+  overflow:hidden;
+  background:var(--mint);
+  box-shadow:0 12px 0 -3px rgba(46,36,56,.16), 0 30px 54px -20px rgba(46,36,56,.5);
+  touch-action:manipulation;
+  user-select:none;
+  -webkit-user-select:none;
+}
+canvas{display:block;width:100%;height:100%}
+
+/* ---------- overlay panels ---------- */
+.panel{
+  position:absolute; inset:0;
+  display:grid; place-items:center;
+  padding:3cqw;
+  background:rgba(46,36,56,.58);
+  backdrop-filter:blur(3px);
+  z-index:5;
+}
+.panel[hidden]{display:none}
+
+.card{
+  position:relative;
+  background:var(--paper);
+  border:3px solid var(--ink);
+  border-radius:18px;
+  padding:3.4cqw 3.8cqw;
+  width:min(86cqw, 100%);
+  max-height:92cqh;
+  overflow:auto;
+  text-align:center;
+  box-shadow:0 7px 0 -1px rgba(46,36,56,.28);
+}
+/* stitch line — the tailor motif */
+.card::after{
+  content:'';position:absolute;inset:1.1cqw;
+  border:2px dashed rgba(46,36,56,.3);
+  border-radius:11px;pointer-events:none;
+}
+.card > *{position:relative;z-index:1}
+
+h1{font-family:'Fredoka',sans-serif;font-weight:700;font-size:clamp(22px,5.6cqw,54px);line-height:1.02;text-wrap:balance;letter-spacing:-.01em}
+h2{font-family:'Fredoka',sans-serif;font-weight:600;font-size:clamp(19px,4cqw,40px);line-height:1.05;text-wrap:balance}
+.eyebrow{
+  font-family:'Fredoka',sans-serif;font-weight:600;
+  font-size:clamp(10px,1.7cqw,15px);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--grape);margin-bottom:.7cqw;
+}
+.lead{font-size:clamp(12px,2.15cqw,20px);line-height:1.45;max-width:min(52cqw,50ch);margin:1.4cqw auto 0;color:#4A3D57}
+.tiny{font-size:clamp(10px,1.7cqw,15px);color:#6B5C78;margin-top:1.4cqw;line-height:1.5}
+
+.keys{display:flex;flex-wrap:wrap;gap:1cqw;justify-content:center;margin:2.2cqw 0 .4cqw}
+.key{
+  font-family:'Fredoka',sans-serif;font-weight:500;font-size:clamp(10px,1.75cqw,16px);
+  background:var(--paper-2);border:2.5px solid var(--ink);border-radius:9px;
+  padding:.7cqw 1.5cqw;box-shadow:0 3px 0 0 var(--ink);
+}
+
+.btn{
+  font-family:'Fredoka',sans-serif;font-weight:600;
+  font-size:clamp(14px,2.6cqw,26px);
+  padding:clamp(7px,1.1cqw,14px) clamp(16px,3cqw,34px);
+  margin-top:2.4cqw;
+  border-radius:999px;
+  border:3px solid var(--ink);
+  background:var(--coin);
+  color:var(--ink);
+  cursor:pointer;
+  box-shadow:0 5px 0 0 var(--ink);
+  transition:transform .06s ease, box-shadow .06s ease;
+}
+.btn:hover{background:#FFD968}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 0 var(--ink)}
+.btn:focus-visible{outline:3px solid var(--grape);outline-offset:4px}
+.btn.ghost{background:var(--paper-2)}
+
+/* ---------- shop ---------- */
+.purse{
+  display:inline-flex;align-items:center;gap:.7cqw;
+  font-family:'Fredoka',sans-serif;font-weight:600;font-size:clamp(13px,2.4cqw,23px);
+  background:var(--paper-2);border:2.5px solid var(--ink);border-radius:999px;
+  padding:.5cqw 1.8cqw;margin-top:1.4cqw;
+}
+.purse b{font-variant-numeric:tabular-nums}
+.coin-ico{width:1em;height:1em;vertical-align:-.15em;flex:none}
+
+.items{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(clamp(84px,15cqw,150px),1fr));
+  gap:1.5cqw;
+  margin:2.2cqw 0 .6cqw;
+}
+.item{
+  background:var(--paper-2);
+  border:2.5px solid var(--ink);
+  border-radius:13px;
+  padding:1.1cqw .8cqw 1.3cqw;
+  display:flex;flex-direction:column;align-items:center;gap:.5cqw;
+  cursor:pointer;font:inherit;color:inherit;
+  transition:transform .08s ease;
+}
+.item:hover{transform:translateY(-3px)}
+.item:focus-visible{outline:3px solid var(--grape);outline-offset:3px}
+.item canvas{width:clamp(48px,9cqw,96px);height:clamp(59px,11cqw,118px)}
+.item .nm{font-family:'Fredoka',sans-serif;font-weight:600;font-size:clamp(10px,1.75cqw,16px);line-height:1.15;text-wrap:balance}
+.item .pr{font-size:clamp(10px,1.6cqw,15px);font-weight:700;color:var(--coin-dark);font-variant-numeric:tabular-nums}
+.item[data-state="worn"]{background:var(--mint);box-shadow:inset 0 0 0 3px var(--grape)}
+.item[data-state="worn"] .pr{color:var(--grape)}
+.item[data-state="locked"]{opacity:.45;cursor:not-allowed}
+.item[data-state="locked"]:hover{transform:none}
+
+.section-label{
+  font-family:'Fredoka',sans-serif;font-weight:600;font-size:clamp(12px,2.1cqw,20px);
+  margin-top:1.6cqw;text-align:left;padding-left:.4cqw;
+}
+
+/* ---------- touch pad ---------- */
+.pad{position:absolute;inset:auto 0 0 0;display:none;justify-content:space-between;padding:clamp(8px,2.2cqw,22px) clamp(10px,2.6cqw,26px);z-index:4;pointer-events:none}
+.pad.on{display:flex}
+.pad .grp{display:flex;gap:clamp(8px,1.6cqw,16px)}
+.pad button{
+  pointer-events:auto;
+  width:clamp(52px,11cqw,88px);height:clamp(52px,11cqw,88px);border-radius:50%;
+  border:3px solid var(--ink);background:rgba(255,247,236,.72);
+  font-family:'Fredoka',sans-serif;font-weight:600;font-size:clamp(18px,3.4cqw,32px);color:var(--ink);
+  box-shadow:0 4px 0 0 var(--ink);
+}
+.pad button:active{transform:translateY(4px);box-shadow:none;background:var(--coin)}
+
+/* ---------- footer bar ---------- */
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+.bar button{
+  font-family:'Fredoka',sans-serif;font-weight:500;font-size:14px;
+  border:2.5px solid var(--ink);border-radius:999px;background:var(--paper);
+  color:var(--ink);padding:6px 16px;cursor:pointer;box-shadow:0 3px 0 0 var(--ink);
+}
+.bar button:active{transform:translateY(3px);box-shadow:none}
+.bar button:focus-visible{outline:3px solid var(--grape);outline-offset:3px}
+.bar .note{font-size:13px;color:#6B5C78}
+
+@media (max-width:820px){
+  body{padding:6px}
+  .shell{gap:8px}
+  .stage{width:100%}
+  .bar .note{display:none}
+  .bar button{font-size:13px;padding:5px 14px}
+  .card{padding:14px 12px;width:min(94cqw,100%)}
+  .card::after{inset:6px}
+  .items{gap:8px;margin:12px 0 4px}
+}
+
+/* pe atingere, indiciile de tastatura nu ajuta pe nimeni */
+@media (pointer:coarse){
+  .bar .note{display:none}
+  .bar button{font-size:12px;padding:4px 12px}
+}
+
+/* telefon culcat: dam jocului aproape tot ecranul */
+@media (orientation:landscape) and (pointer:coarse) and (max-height:600px){
+  body{padding:2px}
+  .shell{gap:3px}
+  .stage{width:min(100%, calc((100dvh - 36px) * 16 / 9))}
+  .bar{gap:6px}
+  .pad button{width:clamp(44px,10cqw,84px);height:clamp(44px,10cqw,84px)}
+}
+
+/* telefon in picioare: il rugam sa il intoarca */
+.rotate{display:none;justify-content:center}
+.rotate span{
+  font-family:'Fredoka',sans-serif;font-weight:600;font-size:13px;
+  background:var(--coin);border:2.5px solid var(--ink);border-radius:999px;
+  padding:6px 16px;box-shadow:0 3px 0 0 var(--ink);
+}
+
+@media (orientation:portrait) and (pointer:coarse){
+  .rotate{display:flex}
+  .pad button{width:clamp(50px,13cqw,66px);height:clamp(50px,13cqw,66px);font-size:22px}
+
+  /* Pe ecran ingust panoul iese din scena si ocupa tot telefonul,
+     altfel butonul principal ramane sub taietura. */
+  .panel{position:fixed;inset:0;z-index:20;padding:12px}
+  .card{width:min(96vw,540px);max-height:88dvh;padding:18px 15px}
+  .card::after{inset:8px}
+  .panel h1{font-size:clamp(24px,7.4vw,36px)}
+  .panel h2{font-size:clamp(20px,6vw,30px)}
+  .panel .eyebrow{font-size:12px}
+  .panel .lead{font-size:clamp(14px,4vw,17px);max-width:none;margin-top:10px}
+  .panel .tiny{font-size:12px}
+  .panel .keys{gap:7px;margin:14px 0 2px}
+  .panel .key{font-size:12px;padding:6px 12px}
+  .panel .btn{font-size:clamp(16px,4.8vw,21px);padding:13px 28px;margin-top:16px}
+  .panel .purse{font-size:clamp(15px,4.4vw,19px);padding:6px 16px;gap:7px}
+  .panel .section-label{font-size:15px;margin-top:12px}
+  .panel .items{grid-template-columns:repeat(auto-fit,minmax(94px,1fr));gap:9px;margin:14px 0 4px}
+  .panel .item{padding:9px 6px 10px;gap:5px}
+  .panel .item canvas{width:64px;height:79px}
+  .panel .item .nm{font-size:12px}
+  .panel .item .pr{font-size:12px}
+  #fin-prev{width:150px !important;height:184px !important}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms !important;transition-duration:.001ms !important}
+}
+</style>
+
+<div class="shell">
+  <div class="stage" id="stage">
+    <canvas id="cv" width="960" height="540" aria-label="Joc: Aventura Anabellei"></canvas>
+
+    <div class="pad" id="pad">
+      <div class="grp">
+        <button id="bl" aria-label="Stânga">◀</button>
+        <button id="br" aria-label="Dreapta">▶</button>
+      </div>
+      <div class="grp">
+        <button id="bf" aria-label="Aruncă bilă de foc">🔥</button>
+        <button id="bj" aria-label="Sari">▲</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel" hidden><div class="card" id="card"></div></div>
+  </div>
+
+  <div class="rotate"><span>Întoarce telefonul pe orizontală ⟳</span></div>
+
+  <div class="bar">
+    <button id="mute" type="button">🔊 Sunet</button>
+    <button id="restart" type="button">↺ De la început</button>
+    <span class="note">Săgeți sau A / D ca să mergi · Sus, W sau Spațiu ca să sari</span>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   Aventura Anabellei — un platformer de doua niveluri.
+   Nivel 1: supermarket -> croitorie.  Nivel 2: galerie -> salon.
+   ============================================================ */
+
+const cv = document.getElementById('cv');
+const g  = cv.getContext('2d');
+const W = 960, H = 540;
+
+const INK    = '#2E2438';
+const COIN   = '#FFC93C';
+const COIND  = '#E39B12';
+const DANGER = '#E5566A';
+const SKIN   = '#F7D2B5';
+const SKIN_D = '#E0B394';
+
+const clamp = (v,a,b) => v < a ? a : v > b ? b : v;
+
+/* ---------------- sunet ---------------- */
+let actx = null, muted = false;
+function beep(freq, dur, type, vol, delay){
+  if(muted) return;
+  try{
+    if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if(actx.state === 'suspended') actx.resume();
+    const t0 = actx.currentTime + (delay || 0);
+    const o = actx.createOscillator(), gn = actx.createGain();
+    o.type = type || 'square';
+    o.frequency.setValueAtTime(freq, t0);
+    gn.gain.setValueAtTime(vol || 0.05, t0);
+    gn.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(gn); gn.connect(actx.destination);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  }catch(e){}
+}
+const sfx = {
+  coin(){ beep(920,.07,'square',.045,0); beep(1380,.09,'square',.04,.06); },
+  jump(){ beep(430,.11,'triangle',.05,0); beep(640,.08,'triangle',.035,.05); },
+  hurt(){ beep(200,.22,'sawtooth',.05,0); beep(130,.26,'sawtooth',.04,.09); },
+  stomp(){ beep(300,.07,'square',.05,0); beep(760,.1,'square',.04,.05); },
+  buy(){ beep(660,.09,'triangle',.05,0); beep(880,.09,'triangle',.05,.08); beep(1180,.16,'triangle',.05,.16); },
+  win(){ [523,659,784,1047].forEach((f,i)=>beep(f,.16,'triangle',.055,i*.11)); },
+  jump2(){ beep(560,.1,'triangle',.05,0); beep(840,.1,'triangle',.04,.06); },
+  fire(){ beep(720,.06,'sawtooth',.035,0); beep(420,.09,'sawtooth',.03,.05); },
+  power(){ [392,523,659,784,1047].forEach((f,i)=>beep(f,.13,'square',.05,i*.07)); }
+};
+
+/* ---------------- garderoba ---------------- */
+const OUTFITS = [
+  { id:'rupta',    name:'Rochiță ruptă',    price:0,  dress:'#A2907C', trim:'#83725F', torn:true },
+  { id:'roz',      name:'Rochiță roz',      price:15, dress:'#F58BB0', trim:'#FFD9E7' },
+  { id:'curcubeu', name:'Rochiță curcubeu', price:30, rainbow:true,    trim:'#FFFFFF' },
+  { id:'printesa', name:'Rochie de prințesă',price:50, dress:'#7B5CD6', trim:'#FFC93C', sparkle:true }
+];
+const HAIRS = [
+  { id:'ciufulit', name:'Păr ciufulit', price:0,  color:'#6B4A32' },
+  { id:'coditse',  name:'Codițe',       price:15, color:'#6B4A32' },
+  { id:'coc',      name:'Coc cu fundă', price:25, color:'#4E3524' },
+  { id:'bucle',    name:'Bucle aurii',  price:40, color:'#EFC152' }
+];
+const WINGS = [
+  { id:'transparente', name:'Aripi de zână',  price:0,  a:'rgba(255,255,255,.8)',  b:'#8FD3C6' },
+  { id:'roz',          name:'Aripi roz',      price:15, a:'rgba(245,139,176,.82)', b:'#E0679A' },
+  { id:'curcubeu',     name:'Aripi curcubeu', price:30, rainbow:true,              b:'#7B5CD6' },
+  { id:'aurii',        name:'Aripi aurii',    price:45, a:'rgba(255,201,60,.86)',  b:'#E39B12' }
+];
+const MAKEUPS = [
+  { id:'none',     name:'Fără machiaj',   price:0 },
+  { id:'obraji',   name:'Obrăjori roz',   price:10 },
+  { id:'sclipici', name:'Sclipici pe ochi',price:20 }
+];
+const byId = (arr,id) => arr.find(o => o.id === id) || arr[0];
+
+/* ---------------- desenul fetitei ---------------- */
+function rr(c,x,y,w,h,r){
+  c.beginPath();
+  c.moveTo(x+r,y);
+  c.arcTo(x+w,y,x+w,y+h,r);
+  c.arcTo(x+w,y+h,x,y+h,r);
+  c.arcTo(x,y+h,x,y,r);
+  c.arcTo(x,y,x+w,y,r);
+  c.closePath();
+}
+function fs(c,fill){ c.fillStyle = fill; c.fill(); c.strokeStyle = INK; c.stroke(); }
+
+/* Deseneaza fetita cu picioarele la (0,0), inaltime ~62.  */
+function drawGirl(c, look, o){
+  o = o || {};
+  const legs   = o.legs   || 0;
+  const face   = o.face   || 1;
+  const scale  = o.scale  || 1;
+  const arms   = o.arms   || 0;
+  const outfit = byId(OUTFITS, look.outfit);
+  const hair   = byId(HAIRS,   look.hair);
+  const mk     = look.makeup || 'none';
+
+  c.save();
+  c.translate(o.x||0, o.y||0);
+  c.scale(face*scale, scale);
+  c.lineWidth = 2.2; c.lineJoin = 'round'; c.lineCap = 'round';
+
+  const lp = Math.sin(legs) * 6;
+
+  /* --- aripi de zana (in spatele fetitei) --- */
+  if(look.fairy){
+    const wg = byId(WINGS, look.wings);
+    const flap = Math.sin((o.wing !== undefined ? o.wing : legs) * 2) * 0.28;
+    for(const sx of [-1, 1]){
+      c.save(); c.translate(sx * 6, -36); c.rotate(sx * (0.42 + flap));
+      for(const sc of [1, 0.68]){
+        c.save(); c.scale(sx * sc, sc);
+        c.beginPath();
+        c.moveTo(0, 0);
+        c.bezierCurveTo(4, -22, 24, -26, 26, -8);
+        c.bezierCurveTo(27, 5, 10, 8, 0, 0);
+        c.closePath();
+        if(wg.rainbow){
+          const wgr = c.createLinearGradient(0,-24,26,6);
+          ['rgba(242,84,91,.7)','rgba(255,212,71,.7)','rgba(95,201,139,.7)','rgba(139,111,214,.7)']
+            .forEach((col,i)=>wgr.addColorStop(i/3,col));
+          c.fillStyle = wgr;
+        }else c.fillStyle = wg.a;
+        c.fill();
+        c.lineWidth = 1.8 / sc; c.strokeStyle = wg.b; c.stroke();
+        c.restore();
+      }
+      c.restore();
+    }
+  }
+
+  /* --- picioare + pantofi --- */
+  for(const s of [{dx:-5, sw:lp}, {dx:5, sw:-lp}]){
+    c.save(); c.translate(s.dx, -16); c.rotate(s.sw * 0.035);
+    rr(c, -3.4, 0, 6.8, 15, 3); fs(c, SKIN);
+    rr(c, -5.2, 12, 10.4, 6, 3); fs(c, outfit.id === 'rupta' ? '#8C7663' : '#E5566A');
+    c.restore();
+  }
+
+  /* --- rochie --- */
+  c.beginPath();
+  c.moveTo(-8, -40); c.lineTo(8, -40);
+  c.lineTo(15, -17); 
+  if(outfit.torn){
+    c.lineTo(10,-13); c.lineTo(6,-19); c.lineTo(1,-12); c.lineTo(-4,-18); c.lineTo(-9,-12); c.lineTo(-13,-17);
+  }else{
+    c.lineTo(13,-14); c.lineTo(-13,-14);
+  }
+  c.lineTo(-15, -17);
+  c.closePath();
+  if(outfit.rainbow){
+    const grd = c.createLinearGradient(0,-40,0,-13);
+    ['#F2545B','#F9A03F','#FFD447','#5FC98B','#4FB3D9','#8B6FD6'].forEach((col,i)=>grd.addColorStop(i/5,col));
+    c.fillStyle = grd;
+  }else{
+    c.fillStyle = outfit.dress;
+  }
+  c.fill(); c.strokeStyle = INK; c.stroke();
+
+  /* petic pe rochia rupta */
+  if(outfit.torn){
+    c.save(); c.translate(5,-28); c.rotate(.2);
+    rr(c,-4,-4,8,8,1.5); c.fillStyle='#C9B49E'; c.fill();
+    c.lineWidth=1.2; c.setLineDash([2,2]); c.strokeStyle=INK; c.stroke();
+    c.setLineDash([]); c.lineWidth=2.2; c.restore();
+  }
+  /* guler / betelie */
+  rr(c, -9, -42, 18, 5, 2.5); fs(c, outfit.trim);
+  if(outfit.sparkle){
+    c.fillStyle = '#FFF3B0';
+    [[-8,-33],[6,-30],[-2,-22],[10,-24]].forEach(p=>{
+      c.beginPath();
+      c.moveTo(p[0],p[1]-3); c.lineTo(p[0]+1.6,p[1]); c.lineTo(p[0],p[1]+3); c.lineTo(p[0]-1.6,p[1]);
+      c.closePath(); c.fill();
+    });
+  }
+
+  if(o.sup){
+    c.save(); c.translate(0, -31); c.rotate(Math.sin((o.legs||0)*2) * 0.12);
+    c.beginPath();
+    for(let i = 0; i < 10; i++){
+      const a = -Math.PI/2 + i*Math.PI/5, r = i % 2 ? 2.6 : 6;
+      i ? c.lineTo(Math.cos(a)*r, Math.sin(a)*r) : c.moveTo(Math.cos(a)*r, Math.sin(a)*r);
+    }
+    c.closePath(); c.fillStyle = '#FFC93C'; c.fill(); c.strokeStyle = INK; c.lineWidth = 1.8; c.stroke();
+    c.lineWidth = 2.2; c.restore();
+  }
+
+  /* --- brate --- */
+  const ap = Math.sin(arms) * 5;
+  for(const s of [{dx:-10, sw:-ap}, {dx:10, sw:ap}]){
+    c.save(); c.translate(s.dx, -40); c.rotate(s.sw * 0.05 + (s.dx<0 ? .18 : -.18));
+    rr(c, -2.8, 0, 5.6, 15, 2.8); fs(c, SKIN);
+    c.restore();
+  }
+
+  /* --- bagheta de zana --- */
+  if(look.fairy){
+    c.save(); c.translate(13, -30); c.rotate(-0.5);
+    c.lineWidth = 2.4; c.strokeStyle = '#FFF7EC';
+    c.beginPath(); c.moveTo(0, 0); c.lineTo(0, -15); c.stroke();
+    c.strokeStyle = INK; c.lineWidth = 1.4; c.stroke();
+    c.translate(0, -18);
+    c.beginPath();
+    for(let i = 0; i < 10; i++){
+      const a = -Math.PI/2 + i*Math.PI/5, r = i % 2 ? 2.2 : 5.4;
+      i ? c.lineTo(Math.cos(a)*r, Math.sin(a)*r) : c.moveTo(Math.cos(a)*r, Math.sin(a)*r);
+    }
+    c.closePath(); c.fillStyle = COIN; c.fill(); c.lineWidth = 1.8; c.strokeStyle = INK; c.stroke();
+    c.lineWidth = 2.2; c.restore();
+  }
+
+  /* --- par in spate --- */
+  c.fillStyle = hair.color; c.strokeStyle = INK;
+  if(hair.id === 'bucle'){
+    [[-11,-50,7],[11,-50,7],[-10,-41,6],[10,-41,6],[0,-38,6]].forEach(p=>{
+      c.beginPath(); c.arc(p[0],p[1],p[2],0,7); c.fill(); c.stroke();
+    });
+  }else if(hair.id === 'coditse'){
+    for(const sx of [-1,1]){
+      c.beginPath(); c.moveTo(sx*11,-53);
+      c.quadraticCurveTo(sx*20,-45, sx*16,-32);
+      c.quadraticCurveTo(sx*13,-27, sx*9,-31);
+      c.quadraticCurveTo(sx*13,-42, sx*8,-51);
+      c.closePath(); c.fill(); c.stroke();
+      c.beginPath(); c.arc(sx*13,-47,3,0,7); c.fillStyle='#F58BB0'; c.fill(); c.stroke();
+      c.fillStyle = hair.color;
+    }
+  }else if(hair.id === 'coc'){
+    c.beginPath(); c.arc(0,-64,7.5,0,7); c.fill(); c.stroke();
+    c.fillStyle = '#F2545B';
+    c.beginPath(); c.moveTo(-8,-64); c.lineTo(-2,-67); c.lineTo(-2,-61); c.closePath(); c.fill(); c.stroke();
+    c.beginPath(); c.moveTo(8,-64); c.lineTo(2,-67); c.lineTo(2,-61); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = hair.color;
+  }else{
+    /* ciufulit — smocuri dezordonate */
+    c.beginPath(); c.moveTo(-11,-48);
+    c.quadraticCurveTo(-16,-40,-9,-36);
+    c.lineTo(9,-36);
+    c.quadraticCurveTo(16,-40,11,-48);
+    c.closePath(); c.fill(); c.stroke();
+  }
+
+  /* --- cap --- */
+  c.beginPath(); c.arc(0,-52,10.5,0,7); c.fillStyle = SKIN; c.fill(); c.strokeStyle = INK; c.stroke();
+
+  /* --- breton --- */
+  c.fillStyle = hair.color;
+  c.beginPath();
+  c.moveTo(-10.5,-53);
+  c.quadraticCurveTo(-11,-64, 0,-63.5);
+  c.quadraticCurveTo(11,-64, 10.5,-53);
+  c.quadraticCurveTo(6,-57, 1,-55);
+  c.quadraticCurveTo(-5,-58, -10.5,-53);
+  c.closePath(); c.fill(); c.stroke();
+  if(hair.id === 'ciufulit'){
+    c.beginPath(); c.moveTo(-2,-63); c.lineTo(-4,-69); c.lineTo(2,-64); c.closePath(); c.fill(); c.stroke();
+    c.beginPath(); c.moveTo(5,-62); c.lineTo(9,-67); c.lineTo(8,-61); c.closePath(); c.fill(); c.stroke();
+  }
+
+  /* --- fata --- */
+  c.fillStyle = INK;
+  c.beginPath(); c.arc(-3.6,-52,1.7,0,7); c.fill();
+  c.beginPath(); c.arc( 4.2,-52,1.7,0,7); c.fill();
+  c.lineWidth = 1.6; c.strokeStyle = INK;
+  c.beginPath(); c.arc(0.4,-48.5,3.4,.2,Math.PI-.2); c.stroke();
+  c.lineWidth = 2.2;
+
+  if(mk === 'obraji' || mk === 'sclipici'){
+    c.fillStyle = 'rgba(245,110,150,.5)';
+    c.beginPath(); c.arc(-6.5,-49,2.6,0,7); c.fill();
+    c.beginPath(); c.arc( 7,-49,2.6,0,7); c.fill();
+  }
+  if(mk === 'sclipici'){
+    c.fillStyle = '#7B5CD6';
+    c.beginPath(); c.ellipse(-3.6,-55.4,3,1.4,0,0,7); c.fill();
+    c.beginPath(); c.ellipse( 4.2,-55.4,3,1.4,0,0,7); c.fill();
+    c.fillStyle = '#FFF3B0';
+    [[-7,-57],[8,-58],[1,-59]].forEach(p=>{
+      c.beginPath();
+      c.moveTo(p[0],p[1]-2.4); c.lineTo(p[0]+1.3,p[1]); c.lineTo(p[0],p[1]+2.4); c.lineTo(p[0]-1.3,p[1]);
+      c.closePath(); c.fill();
+    });
+  }
+  c.restore();
+}
+
+/* ---------------- constructori de nivel ---------------- */
+function coinRow(x,y,n,step){
+  const out = []; step = step || 40;
+  for(let i=0;i<n;i++) out.push({x:x+i*step, y:y, got:false});
+  return out;
+}
+function coinArc(cx,y,n,r){
+  const out = [];
+  for(let i=0;i<n;i++){
+    const t = (i/(n-1) - .5) * Math.PI;
+    out.push({x: cx + Math.sin(t)*r, y: y - Math.cos(t)*r*0.62, got:false});
+  }
+  return out;
+}
+
+function buildLevel(cfg){
+  const L = {
+    name: cfg.name, sub: cfg.sub, theme: cfg.theme,
+    len: cfg.len, groundY: 470,
+    mode: cfg.mode || 'walk', after: cfg.after,
+    topY: cfg.topY, startY: cfg.startY, castleY: cfg.castleY,
+    platforms: [], spikes: [], monsters: [], coins: [], mushrooms: [],
+    goalX: cfg.goalX, goalLabel: cfg.goalLabel
+  };
+  cfg.platforms.forEach(p => L.platforms.push({x:p[0], y:p[1], w:p[2], h:20}));
+
+  /* Nimic nu poate fi mai sus decat sare fetita: coboram rafturile prea inalte
+     pana cand fiecare are un sprijin (solul sau un raft mai jos) la indemana. */
+  const MAX_RISE = 124, MAX_GAP = 170;
+  for(let pass = 0; pass < 5; pass++){
+    L.platforms.forEach((a, i) => {
+      let support = L.groundY;
+      L.platforms.forEach((b, j) => {
+        if(i === j || b.y <= a.y) return;
+        const gap = b.x > a.x ? b.x - (a.x + a.w) : a.x - (b.x + b.w);
+        if(gap <= MAX_GAP) support = Math.min(support, b.y);
+      });
+      if(support - a.y > MAX_RISE) a.y = support - MAX_RISE;
+    });
+  }
+
+  cfg.spikes.forEach(s => L.spikes.push({x:s[0], n:s[1], y:L.groundY-24, w:s[1]*24, h:24}));
+  cfg.monsters.forEach(m => L.monsters.push({
+    x:m[0], y:(m[5] !== undefined ? m[5] : L.groundY-32), w:62, h:32, x1:m[1], x2:m[2],
+    dir:1, spd:1.05 + (m[3]||0), dead:false, t:Math.random()*6, hue:m[4]||0,
+    kind: cfg.mode === 'fly' ? 'storm' : 'bug'
+  }));
+  (cfg.mushrooms || []).forEach(m =>
+    L.mushrooms.push(Array.isArray(m) ? {x:m[0], y:m[1], got:false} : {x:m, y:L.groundY - 20, got:false}));
+
+  /* banuti pe fiecare raft */
+  L.platforms.forEach(p => {
+    const n = p.w >= 170 ? 4 : 3;
+    L.coins.push(...coinRow(p.x + (p.w - (n-1)*40)/2, p.y - 34, n));
+  });
+  /* banuti in arc peste fiecare grup de tepi */
+  L.spikes.forEach(s => L.coins.push(...coinArc(s.x + s.w/2, s.y - 46, 5, 62)));
+  if(cfg.extraCoins) L.coins.push(...cfg.extraCoins);
+  return L;
+}
+
+const LEVELS = [
+  buildLevel({
+    name:'Nivelul 1', sub:'Supermarketul', theme:'market', len:4760, goalX:4560, goalLabel:'CROITORIE', after:'shop',
+    platforms:[[400,378,150],[690,326,170],[980,388,130],[1300,338,200],[1690,300,150],
+               [1960,382,160],[2330,330,180],[2690,388,140],[2950,300,200],[3330,358,150],
+               [3690,318,180],[4040,384,160]],
+    spikes:[[600,3],[1180,4],[1860,3],[2560,4],[3200,3],[3900,4]],
+    mushrooms:[770, 2260, 3640],
+    monsters:[[900,850,1090,0,0],[1520,1460,1690,.15,1],[2140,2090,2320,0,2],
+              [2860,2800,3060,.2,0],[3520,3460,3680,.1,1],[4200,4140,4360,.25,2]]
+  }),
+  buildLevel({
+    name:'Nivelul 2', sub:'Galeria comercială', theme:'mall', len:4980, goalX:4780, goalLabel:'SALON', after:'salon',
+    platforms:[[360,344,160],[660,392,140],[930,300,180],[1260,360,150],[1560,310,190],
+               [1880,384,140],[2150,318,170],[2480,368,160],[2800,296,200],[3160,350,150],
+               [3460,308,180],[3800,380,150],[4120,320,190]],
+    spikes:[[560,4],[1130,3],[1740,4],[2340,3],[2980,4],[3640,3],[4000,3]],
+    mushrooms:[720, 2200, 3400, 4260],
+    monsters:[[820,770,1010,.2,1],[1420,1360,1600,.1,2],[2020,1960,2200,.3,0],
+              [2660,2600,2860,.2,1],[3320,3260,3500,.35,2],[3900,3840,4060,.25,0],
+              [4380,4320,4540,.3,1]]
+  }),
+  buildLevel({
+    name:'Nivelul 3', sub:'Pădurea vrăjitorului', theme:'forest', len:5120, goalX:4900,
+    goalLabel:'VRĂJITOR', after:'fairy',
+    platforms:[[340,352,150],[640,300,170],[960,376,140],[1280,318,180],[1600,362,150],
+               [1900,296,190],[2240,370,140],[2540,322,170],[2880,290,200],[3240,356,150],
+               [3560,308,180],[3900,374,140],[4200,318,190],[4520,352,160]],
+    spikes:[[520,4],[1120,4],[1760,3],[2380,4],[3040,4],[3700,3],[4360,4]],
+    monsters:[[800,740,990,.3,2],[1420,1360,1600,.25,0],[2060,2000,2240,.4,1],
+              [2700,2640,2900,.3,2],[3380,3320,3560,.45,0],[4020,3960,4200,.35,1],
+              [4620,4560,4800,.4,2]],
+    mushrooms:[680, 2120, 3760]
+  }),
+  buildLevel({
+    mode:'fly', name:'Nivelul 4', sub:'Sus, prin nori', theme:'sky', after:'end',
+    len:960, startY:400, topY:-3400, castleY:-3180, goalX:0, goalLabel:'CASTEL',
+    platforms:[], spikes:[],
+    monsters:[[420,120,840,.5,0,120],[300,60,700,.35,1,-250],[560,200,900,.6,2,-620],
+              [240,80,640,.45,0,-1000],[600,260,920,.55,1,-1380],[340,100,760,.4,2,-1760],
+              [520,160,880,.6,0,-2140],[280,60,700,.5,1,-2520],[600,220,900,.65,2,-2900]],
+    mushrooms:[[300,-780],[640,-2200]],
+    extraCoins:(function(){
+      const out = [];
+      for(let i = 0; i < 24; i++){
+        const y  = 250 - i*146;
+        const cx = clamp(480 + Math.sin(i*0.8)*300, 130, 830);
+        out.push(...coinArc(cx, y, 5, 76));
+      }
+      return out;
+    })()
+  })
+];
+
+/* ---------------- starea jocului ---------------- */
+const STATE = { INTRO:'intro', PLAY:'play', SHOP:'shop', SALON:'salon', FAIRY:'fairy', END:'end' };
+
+let state, levelIdx, cam, camY, tick, purse, owned, look, player, pops, shakeT, balls;
+
+function freshGame(){
+  state    = STATE.INTRO;
+  levelIdx = 0;
+  purse    = 0;
+  owned    = { rupta:true, ciufulit:true, none:true, transparente:true };
+  look     = { outfit:'rupta', hair:'ciufulit', makeup:'none', wings:'transparente', fairy:false };
+  LEVELS.forEach(L => {
+    L.coins.forEach(c => c.got = false);
+    L.mushrooms.forEach(m => m.got = false);
+    L.monsters.forEach(m => { m.dead = false; m.x = (m.x1 + m.x2)/2; m.dir = 1; });
+  });
+  resetPlayer();
+  cam = 0; camY = 0; tick = 0; pops = []; shakeT = 0; balls = [];
+  showIntro();
+}
+function resetPlayer(){
+  const L = LEVELS[levelIdx];
+  player = { x:60, y:(L.mode === 'fly' ? L.startY : L.groundY - 54), w:28, h:54,
+             vx:0, vy:0, onGround:false, face:1, hearts:3,
+             invuln:0, walk:0, jumpLock:false,
+             jumps:2, superT:0, cool:0 };
+}
+
+/* ---------------- input ---------------- */
+const keys = {};
+const touchState = { left:false, right:false, jump:false, fire:false };
+
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if(['arrowleft','arrowright','arrowup','arrowdown',' ','a','d','w'].includes(k)) e.preventDefault();
+  keys[k] = true;
+}, {passive:false});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+function releaseAll(){ for(const k in keys) keys[k] = false; touchState.left = touchState.right = touchState.jump = touchState.fire = false; }
+addEventListener('blur', releaseAll);
+document.addEventListener('visibilitychange', () => { if(document.hidden) releaseAll(); });
+
+function bindPad(el, prop){
+  const on  = e => { e.preventDefault(); touchState[prop] = true;  };
+  const off = e => { e.preventDefault(); touchState[prop] = false; };
+  el.addEventListener('pointerdown', on);
+  el.addEventListener('pointerup', off);
+  el.addEventListener('pointercancel', off);
+  el.addEventListener('pointerleave', off);
+}
+bindPad(document.getElementById('bl'), 'left');
+bindPad(document.getElementById('br'), 'right');
+bindPad(document.getElementById('bj'), 'jump');
+bindPad(document.getElementById('bf'), 'fire');
+if(matchMedia('(pointer:coarse)').matches) document.getElementById('pad').classList.add('on');
+
+/* ---------------- fizica ---------------- */
+function hit(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
+
+function hurt(dir){
+  if(player.invuln > 0) return;
+  if(player.superT > 0){
+    player.superT = 0; player.invuln = 80; shakeT = 10;
+    player.vx = dir * 4.6;
+    player.vy = LEVELS[levelIdx].mode === 'fly' ? 5.5 : -6.5;
+    player.onGround = false;
+    pops.push({x:player.x+14, y:player.y, txt:'Vai, ciuperca!', t:70, col:'#E5566A'});
+    sfx.hurt();
+    return;
+  }
+  player.hearts--; player.invuln = 96; shakeT = 14;
+  const fly = LEVELS[levelIdx].mode === 'fly';
+  player.vx = dir * 5.4; player.vy = fly ? 6.5 : -7.5; player.onGround = false;
+  sfx.hurt();
+  if(player.hearts <= 0){
+    if(fly){
+      /* In zbor nu o trimitem tocmai jos — coboara putin si isi ia inimile inapoi. */
+      player.y = Math.min(LEVELS[levelIdx].startY, player.y + 420);
+    }else{
+      player.x = 60; player.y = LEVELS[levelIdx].groundY - 54;
+    }
+    player.vx = 0; player.vy = 0;
+    player.hearts = 3; player.invuln = 70;
+    pops.push({x:player.x+14, y:player.y, txt:'Hai din nou!', t:90, col:'#7B5CD6'});
+  }
+}
+
+function step(){
+  const L = LEVELS[levelIdx], p = player;
+  const left  = keys.arrowleft  || keys.a || touchState.left;
+  const right = keys.arrowright || keys.d || touchState.right;
+  const jump  = keys.arrowup    || keys.w || keys[' '] || touchState.jump;
+  const fire  = keys.x || keys.f || touchState.fire;
+  const down  = keys.arrowdown  || keys.s;
+  const flying = L.mode === 'fly';
+
+  if(left  && !right){ p.vx -= 0.85; p.face = -1; }
+  if(right && !left ){ p.vx += 0.85; p.face =  1; }
+  if(left === right)  p.vx *= 0.78;
+  p.vx = clamp(p.vx, -4.7, 4.7);
+  if(Math.abs(p.vx) < 0.05) p.vx = 0;
+
+  /* Saritura dubla: o data de pe sol, inca o data in aer ca sa ajunga mai sus. */
+  if(!flying && jump && !p.jumpLock && p.jumps > 0){
+    const second = p.jumps === 1;
+    p.vy = second ? -11.8 : -13.0;
+    p.jumps--; p.onGround = false; p.jumpLock = true;
+    second ? sfx.jump2() : sfx.jump();
+    if(second){
+      for(let i = 0; i < 6; i++)
+        pops.push({x:p.x + 4 + i*4, y:p.y + p.h, txt:'·', t:22, col:'#BFE7DE'});
+    }
+  }
+  if(!jump){ p.jumpLock = false; if(p.vy < -4.2) p.vy = -4.2; }
+
+  /* Bile de foc — doar cat timp e SUPER ANABELLE. */
+  if(p.cool > 0) p.cool--;
+  if(fire && p.superT > 0 && p.cool === 0){
+    p.cool = 15;
+    balls.push({x: p.x + p.w/2 + p.face*16, y: p.y + 24, vx: p.face*8.6, vy:-1.6, t:170, sp:0});
+    sfx.fire();
+  }
+  if(p.superT > 0) p.superT--;
+
+  if(flying){
+    /* Zâna zboară: sus ridică, jos coboară, altfel plutește lin. */
+    if(jump) p.vy -= 0.74;
+    if(down) p.vy += 0.62;
+    if(!jump && !down) p.vy *= 0.9;
+    p.vy = clamp(p.vy + 0.1, -5.8, 5.8);
+    p.x = clamp(p.x + p.vx, 0, L.len - p.w);
+    p.y = clamp(p.y + p.vy, L.topY, L.startY);
+    if(p.y >= L.startY && p.vy > 0) p.vy = 0;
+    p.onGround = false; p.jumps = 2;
+  }else{
+    p.vy = Math.min(p.vy + 0.63, 16);
+    p.x = clamp(p.x + p.vx, 0, L.len - p.w);
+
+    const prevBottom = p.y + p.h;
+    p.y += p.vy;
+    p.onGround = false;
+    if(p.y + p.h > L.groundY){ p.y = L.groundY - p.h; p.vy = 0; p.onGround = true; }
+    if(p.vy > 0){
+      for(const pl of L.platforms){
+        if(prevBottom <= pl.y + 2 && p.y + p.h >= pl.y && p.x + p.w > pl.x + 3 && p.x < pl.x + pl.w - 3){
+          p.y = pl.y - p.h; p.vy = 0; p.onGround = true; break;
+        }
+      }
+    }
+    if(p.onGround) p.jumps = 2;
+  }
+  p.walk += p.onGround ? Math.abs(p.vx) * 0.19 : 0.06;
+  if(p.invuln > 0) p.invuln--;
+
+  /* --- banuti --- */
+  for(const c of L.coins){
+    if(c.got) continue;
+    if(Math.abs((p.x+p.w/2) - c.x) < 22 && Math.abs((p.y+p.h/2) - c.y) < 26){
+      c.got = true; purse++; sfx.coin();
+      pops.push({x:c.x, y:c.y, txt:'+1', t:44, col:COIND});
+    }
+  }
+
+  /* --- ciuperci magice --- */
+  for(const mu of L.mushrooms){
+    if(mu.got) continue;
+    if(Math.abs((p.x+p.w/2) - mu.x) < 26 && Math.abs((p.y+p.h/2) - mu.y) < 34){
+      mu.got = true; p.superT = 60*22; sfx.power();
+      pops.push({x:mu.x, y:mu.y - 20, txt:'SUPER ANABELLE!', t:110, col:'#E5566A'});
+    }
+  }
+
+  /* --- bile de foc --- */
+  for(let i = balls.length - 1; i >= 0; i--){
+    const b = balls[i];
+    b.sp += 0.3;
+    b.vy = Math.min(b.vy + 0.32, 9);
+    b.x += b.vx; b.y += b.vy; b.t--;
+    if(L.mode !== 'fly' && b.y > L.groundY - 8){ b.y = L.groundY - 8; b.vy = -5.4; }
+    for(const pl of L.platforms){
+      if(b.x > pl.x && b.x < pl.x + pl.w && b.y > pl.y - 8 && b.y < pl.y + 10 && b.vy > 0){
+        b.y = pl.y - 8; b.vy = -5.0;
+      }
+    }
+    let spent = false;
+    for(const m of L.monsters){
+      if(m.dead) continue;
+      if(b.x > m.x - 6 && b.x < m.x + m.w + 6 && b.y > m.y - 6 && b.y < m.y + m.h + 6){
+        m.dead = true; purse += 2; spent = true; sfx.stomp();
+        pops.push({x:m.x + m.w/2, y:m.y - 6, txt:'+2', t:52, col:'#E5566A'});
+        break;
+      }
+    }
+    if(spent || b.t <= 0 || b.x < cam - 120 || b.x > cam + W + 120 ||
+       b.y < camY - 150 || b.y > camY + H + 150) balls.splice(i, 1);
+  }
+
+  /* --- monstruleti --- */
+  for(const m of L.monsters){
+    if(m.dead) continue;
+    m.t += 0.09;
+    m.x += m.dir * m.spd;
+    if(m.x < m.x1){ m.x = m.x1; m.dir = 1; }
+    if(m.x + m.w > m.x2){ m.x = m.x2 - m.w; m.dir = -1; }
+    if(hit(p, m)){
+      if(m.kind !== 'storm' && p.vy > 1.2 && (p.y + p.h) - m.y < 26){
+        m.dead = true; p.vy = -10.2; purse += 2; sfx.stomp();
+        pops.push({x:m.x + m.w/2, y:m.y - 6, txt:'+2', t:52, col:'#7B5CD6'});
+      }else{
+        hurt(p.x + p.w/2 < m.x + m.w/2 ? -1 : 1);
+      }
+    }
+  }
+
+  /* --- tepi --- */
+  for(const s of L.spikes){
+    if(hit(p, {x:s.x+3, y:s.y+8, w:s.w-6, h:s.h-8})) hurt(p.x + p.w/2 < s.x + s.w/2 ? -1 : 1);
+  }
+
+  /* --- ușa / castelul --- */
+  const arrived = flying ? (p.y < L.castleY) : (p.x + p.w > L.goalX + 20);
+  if(arrived){
+    sfx.win();
+    if(L.after === 'shop')       showShop();
+    else if(L.after === 'salon') showSalon();
+    else if(L.after === 'fairy') showFairy();
+    else                         showEnd();
+    return;
+  }
+
+  cam  = clamp(p.x - W*0.38, 0, L.len - W);
+  camY = flying ? clamp(p.y - H*0.5, L.topY - 60, L.startY + 86 - H) : 0;
+  for(let i = pops.length-1; i >= 0; i--){ pops[i].t--; pops[i].y -= 0.7; if(pops[i].t <= 0) pops.splice(i,1); }
+  if(shakeT > 0) shakeT--;
+}
+
+/* ---------------- randare ---------------- */
+function lerpHex(a, b, t){
+  const pa = parseInt(a.slice(1),16), pb = parseInt(b.slice(1),16);
+  const r = Math.round((pa>>16) + ((pb>>16) - (pa>>16))*t);
+  const gg= Math.round(((pa>>8)&255) + (((pb>>8)&255) - ((pa>>8)&255))*t);
+  const bl= Math.round((pa&255) + ((pb&255) - (pa&255))*t);
+  return 'rgb(' + r + ',' + gg + ',' + bl + ')';
+}
+
+function puff(c, x, y, r){
+  c.beginPath();
+  c.arc(x - r*0.7, y + r*0.16, r*0.62, 0, 7);
+  c.arc(x,         y - r*0.22, r*0.86, 0, 7);
+  c.arc(x + r*0.75,y + r*0.14, r*0.66, 0, 7);
+  c.arc(x + r*0.1, y + r*0.34, r*0.72, 0, 7);
+  c.fill();
+}
+
+const SKY_PUFFS = [];
+for(let i = 0; i < 46; i++)
+  SKY_PUFFS.push({ x:(i*211) % 1020 - 30, y:(i*163) % 1500, r:26 + (i*37) % 40, d:0.3 + (i % 3)*0.26 });
+
+function drawSky(L){
+  const t = clamp((camY - L.topY) / (L.startY - L.topY), 0, 1);
+  const sky = g.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, lerpHex('#B78FE2', '#8FCBEC', t));
+  sky.addColorStop(1, lerpHex('#F7CFE4', '#DCF1FB', t));
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+
+  /* soare palid sus de tot */
+  g.globalAlpha = (1 - t) * 0.5;
+  g.fillStyle = '#FFF3B0';
+  g.beginPath(); g.arc(W - 140, 100, 62, 0, 7); g.fill();
+  g.globalAlpha = 1;
+
+  for(const q of SKY_PUFFS){
+    const sy = (((q.y - camY * q.d) % 1500) + 1500) % 1500 - 260;
+    if(sy < -140 || sy > H + 140) continue;
+    g.fillStyle = 'rgba(255,255,255,' + (0.32 + q.d * 0.35).toFixed(2) + ')';
+    puff(g, q.x, sy, q.r);
+  }
+}
+
+function drawForest(L){
+  const sky = g.createLinearGradient(0, 0, 0, L.groundY);
+  sky.addColorStop(0, '#CDE3D0'); sky.addColorStop(1, '#9CC5A8');
+  g.fillStyle = sky; g.fillRect(0, 0, W, L.groundY);
+
+  /* raze printre coroane */
+  g.fillStyle = 'rgba(255,247,236,.22)';
+  for(let x = -((cam*0.25) % 300); x < W + 300; x += 300){
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 70, 0); g.lineTo(x + 170, L.groundY); g.lineTo(x + 40, L.groundY);
+    g.closePath(); g.fill();
+  }
+  /* trunchiuri departate */
+  const far = cam * 0.34;
+  for(let i = -1; i < 16; i++){
+    const x = i*250 - (far % 250);
+    g.fillStyle = 'rgba(70,52,40,.2)';
+    rr(g, x, 120, 46, 350, 10); g.fill();
+    g.fillStyle = 'rgba(60,120,84,.28)';
+    g.beginPath(); g.ellipse(x + 23, 118, 96, 62, 0, 0, 7); g.fill();
+  }
+  /* tufe apropiate */
+  const near = cam * 0.72;
+  for(let i = -1; i < 20; i++){
+    const x = i*195 - (near % 195);
+    g.fillStyle = 'rgba(46,80,58,.3)';
+    g.beginPath(); g.ellipse(x + 32, 424, 46, 38, 0, 0, 7); g.fill();
+    g.fillStyle = 'rgba(255,201,60,.35)';
+    g.beginPath(); g.arc(x + 20, 410, 5, 0, 7); g.fill();
+    g.beginPath(); g.arc(x + 46, 424, 4, 0, 7); g.fill();
+  }
+  /* covor de frunze */
+  g.fillStyle = '#6E9A6E'; g.fillRect(0, L.groundY, W, H - L.groundY);
+  g.fillStyle = '#5C8760';
+  const tile = 64, off = cam % tile;
+  for(let x = -off; x < W; x += tile) g.fillRect(x, L.groundY, tile/2, H - L.groundY);
+  g.fillStyle = INK; g.fillRect(0, L.groundY - 4, W, 4);
+}
+
+function drawBackdrop(L){
+  if(L.theme === 'sky')    return drawSky(L);
+  if(L.theme === 'forest') return drawForest(L);
+  const market = L.theme === 'market';
+  const sky = g.createLinearGradient(0,0,0,L.groundY);
+  if(market){ sky.addColorStop(0,'#D6F2EA'); sky.addColorStop(1,'#A9DCD1'); }
+  else      { sky.addColorStop(0,'#EADDF7'); sky.addColorStop(1,'#CDBBEA'); }
+  g.fillStyle = sky; g.fillRect(0,0,W,L.groundY);
+
+  /* lumini de tavan */
+  g.fillStyle = market ? 'rgba(255,255,255,.55)' : 'rgba(255,255,255,.4)';
+  for(let x = -((cam*0.5) % 240); x < W+240; x += 240){
+    rr(g, x, 16, 96, 12, 6); g.fill();
+    g.fillRect(x+44, 0, 8, 16);
+  }
+
+  /* strat departat: rafturi / vitrine */
+  const far = cam * 0.35;
+  for(let i = -1; i < 14; i++){
+    const x = i*280 - (far % 280);
+    if(market){
+      g.fillStyle = 'rgba(255,255,255,.42)';
+      rr(g, x, 210, 200, 200, 8); g.fill();
+      g.fillStyle = 'rgba(46,36,56,.09)';
+      for(let r = 0; r < 4; r++) g.fillRect(x+10, 230 + r*44, 180, 7);
+      g.fillStyle = ['rgba(245,110,150,.35)','rgba(95,201,139,.35)','rgba(255,201,60,.4)'][((i%3)+3)%3];
+      for(let k = 0; k < 5; k++) rr(g, x+18+k*36, 238+((i+k)%4)*44, 22, 22, 4), g.fill();
+    }else{
+      g.fillStyle = 'rgba(255,255,255,.45)';
+      rr(g, x+20, 190, 220, 220, 10); g.fill();
+      g.fillStyle = 'rgba(46,36,56,.12)';
+      rr(g, x+48, 250, 74, 160, 6); g.fill();
+      rr(g, x+140, 250, 74, 160, 6); g.fill();
+      g.fillStyle = ['#F58BB0','#7B5CD6','#5FC98B'][((i%3)+3)%3];
+      rr(g, x+38, 206, 184, 22, 6); g.fill();
+    }
+  }
+
+  /* strat apropiat: plante / cosuri */
+  const near = cam * 0.7;
+  for(let i = -1; i < 18; i++){
+    const x = i*210 - (near % 210);
+    g.fillStyle = market ? 'rgba(46,36,56,.14)' : 'rgba(46,36,56,.12)';
+    if(market){ rr(g, x, 388, 62, 76, 8); g.fill(); rr(g, x+8, 372, 46, 18, 6); g.fill(); }
+    else{
+      g.beginPath(); g.ellipse(x+30, 400, 30, 34, 0, 0, 7); g.fill();
+      rr(g, x+18, 424, 24, 40, 5); g.fill();
+    }
+  }
+
+  /* podea */
+  g.fillStyle = market ? '#F2E2CD' : '#E9DFF4';
+  g.fillRect(0, L.groundY, W, H - L.groundY);
+  g.fillStyle = market ? '#E1CBAE' : '#D6C7E8';
+  const tile = 64, off = cam % tile;
+  for(let x = -off; x < W; x += tile) g.fillRect(x, L.groundY, tile/2, H - L.groundY);
+  g.fillStyle = INK; g.fillRect(0, L.groundY - 4, W, 4);
+}
+
+function drawCoin(x, y, ph){
+  const b = Math.sin(ph) * 3;
+  const sq = Math.abs(Math.cos(ph * 0.9));
+  g.save(); g.translate(x, y + b);
+  g.beginPath(); g.ellipse(0, 0, 9 * (0.35 + sq*0.65), 9, 0, 0, 7);
+  g.fillStyle = COIN; g.fill(); g.lineWidth = 2.2; g.strokeStyle = INK; g.stroke();
+  if(sq > 0.45){
+    g.beginPath(); g.ellipse(0, 0, 4.4 * sq, 4.4, 0, 0, 7);
+    g.strokeStyle = COIND; g.lineWidth = 1.8; g.stroke();
+  }
+  g.restore();
+}
+
+function sparkle(c, x, y, r){
+  c.beginPath();
+  c.moveTo(x, y-r); c.quadraticCurveTo(x, y, x+r, y);
+  c.quadraticCurveTo(x, y, x, y+r); c.quadraticCurveTo(x, y, x-r, y);
+  c.quadraticCurveTo(x, y, x, y-r); c.closePath(); c.fill();
+}
+
+function drawMushroom(mu, ph){
+  const b = Math.sin(ph) * 3;
+  g.save(); g.translate(mu.x, mu.y + b);
+  g.lineWidth = 2.4; g.strokeStyle = INK; g.lineJoin = 'round';
+  /* sclipici in jur */
+  g.fillStyle = 'rgba(255,201,60,.85)';
+  for(let i = 0; i < 3; i++){
+    const a = ph * 1.2 + i * 2.1;
+    sparkle(g, Math.cos(a)*20, Math.sin(a)*15 - 6, 3.4);
+  }
+  rr(g, -7, -6, 14, 15, 4); g.fillStyle = '#FFF0DC'; g.fill(); g.stroke();
+  g.beginPath(); g.moveTo(-16, -5);
+  g.quadraticCurveTo(-16, -22, 0, -22);
+  g.quadraticCurveTo(16, -22, 16, -5);
+  g.closePath(); g.fillStyle = '#E5566A'; g.fill(); g.stroke();
+  g.fillStyle = '#FFF7EC';
+  [[-8,-11,3.4],[3,-14,4],[10,-8,2.8]].forEach(d=>{
+    g.beginPath(); g.arc(d[0], d[1], d[2], 0, 7); g.fill();
+  });
+  g.restore();
+}
+
+function drawBall(b){
+  g.save(); g.translate(b.x, b.y); g.rotate(b.sp);
+  g.fillStyle = 'rgba(255,201,60,.45)';
+  g.beginPath(); g.arc(0, 0, 11, 0, 7); g.fill();
+  g.beginPath(); g.arc(0, 0, 7, 0, 7);
+  g.fillStyle = '#F2884B'; g.fill();
+  g.lineWidth = 2; g.strokeStyle = INK; g.stroke();
+  g.fillStyle = '#FFF3B0';
+  g.beginPath(); g.arc(-1.6, -1.6, 2.8, 0, 7); g.fill();
+  g.restore();
+}
+
+function drawStorm(m){
+  g.save(); g.translate(m.x + m.w/2, m.y + m.h/2 + Math.sin(m.t)*3);
+  g.lineWidth = 2.4; g.strokeStyle = INK; g.lineJoin = 'round';
+  g.fillStyle = '#8E86A8'; puff(g, 0, 0, 34);
+  g.fillStyle = '#6F6689'; puff(g, 4, 6, 24);
+  g.fillStyle = COIN;
+  const f = Math.sin(m.t * 2.4) > 0.2 ? 1 : 0.35;
+  g.globalAlpha = f;
+  g.beginPath();
+  g.moveTo(-5, 12); g.lineTo(6, 12); g.lineTo(0, 22); g.lineTo(10, 20); g.lineTo(-3, 36);
+  g.lineTo(1, 24); g.lineTo(-8, 25);
+  g.closePath(); g.fill(); g.stroke();
+  g.globalAlpha = 1;
+  g.fillStyle = '#FFF7EC';
+  for(const ex of [-11, 8]){
+    g.beginPath(); g.arc(ex, -5, 5, 0, 7); g.fill(); g.stroke();
+    g.beginPath(); g.arc(ex + 1.4, -5, 2.1, 0, 7); g.fillStyle = INK; g.fill(); g.fillStyle = '#FFF7EC';
+  }
+  g.restore();
+}
+
+function drawMonster(m){
+  if(m.kind === 'storm') return drawStorm(m);
+  const palettes = [['#7B5CD6','#B49AF0'], ['#3BB6A6','#8CE0D3'], ['#F2884B','#FFC08A']];
+  const pal = palettes[m.hue % 3];
+  const wob = Math.sin(m.t) * 2.4;
+  g.save(); g.translate(m.x + m.w/2, m.y + m.h/2 + wob);
+  g.scale(m.dir, 1);
+  g.lineWidth = 2.4; g.strokeStyle = INK; g.lineJoin = 'round';
+
+  /* corp lung, dungat */
+  rr(g, -m.w/2, -m.h/2, m.w, m.h, 15);
+  g.save(); g.clip();
+  for(let i = 0; i < 8; i++){
+    g.fillStyle = i % 2 ? pal[0] : pal[1];
+    g.fillRect(-m.w/2 + i*(m.w/8), -m.h/2, m.w/8 + 1, m.h);
+  }
+  g.restore();
+  rr(g, -m.w/2, -m.h/2, m.w, m.h, 15); g.stroke();
+
+  /* piciorușe */
+  g.fillStyle = pal[0];
+  for(let i = 0; i < 4; i++){
+    const px = -m.w/2 + 10 + i*14;
+    const ph = 4 + Math.abs(Math.sin(m.t*1.6 + i)) * 4;
+    rr(g, px, m.h/2 - 2, 6, ph, 3); g.fill(); g.stroke();
+  }
+
+  /* gura cu tepi */
+  g.beginPath(); g.moveTo(m.w/2 - 4, -9);
+  g.quadraticCurveTo(m.w/2 + 9, 0, m.w/2 - 4, 9);
+  g.closePath(); g.fillStyle = DANGER; g.fill(); g.stroke();
+  g.fillStyle = '#FFFFFF';
+  for(let i = 0; i < 3; i++){
+    const ty = -7 + i*6;
+    g.beginPath(); g.moveTo(m.w/2 - 4, ty); g.lineTo(m.w/2 + 2, ty + 2.6); g.lineTo(m.w/2 - 4, ty + 5.2);
+    g.closePath(); g.fill();
+  }
+
+  /* ochi + antene */
+  for(const ex of [-8, 6]){
+    g.strokeStyle = INK; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(ex + 3, -m.h/2 + 2); g.lineTo(ex + 5, -m.h/2 - 10); g.stroke();
+    g.beginPath(); g.arc(ex + 5, -m.h/2 - 13, 4.5, 0, 7);
+    g.fillStyle = '#FFF7EC'; g.fill(); g.lineWidth = 2.2; g.stroke();
+    g.beginPath(); g.arc(ex + 6.2, -m.h/2 - 13, 1.9, 0, 7); g.fillStyle = INK; g.fill();
+  }
+  g.restore();
+}
+
+function drawSpikes(s){
+  for(let i = 0; i < s.n; i++){
+    const x = s.x + i*24;
+    g.beginPath(); g.moveTo(x, s.y + s.h); g.lineTo(x + 12, s.y); g.lineTo(x + 24, s.y + s.h);
+    g.closePath();
+    g.fillStyle = DANGER; g.fill();
+    g.lineWidth = 2.2; g.strokeStyle = INK; g.stroke();
+    g.beginPath(); g.moveTo(x + 12, s.y); g.lineTo(x + 17, s.y + 11); g.lineTo(x + 12, s.y + 9);
+    g.closePath(); g.fillStyle = 'rgba(255,255,255,.5)'; g.fill();
+  }
+}
+
+function drawGoal(L){
+  const x = L.goalX, y = L.groundY;
+  g.lineWidth = 2.6; g.strokeStyle = INK;
+  rr(g, x - 20, y - 190, 180, 190, 12); g.fillStyle = '#FFF7EC'; g.fill(); g.stroke();
+  rr(g, x - 26, y - 216, 192, 34, 10); g.fillStyle = COIN; g.fill(); g.stroke();
+  g.fillStyle = INK; g.font = '700 20px Fredoka, sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(L.goalLabel, x + 70, y - 198);
+  rr(g, x + 40, y - 120, 60, 120, 8); g.fillStyle = L.theme === 'market' ? '#F58BB0' : '#7B5CD6'; g.fill(); g.stroke();
+  g.beginPath(); g.arc(x + 88, y - 60, 4, 0, 7); g.fillStyle = COIN; g.fill(); g.stroke();
+  rr(g, x - 6, y - 132, 38, 84, 6); g.fillStyle = '#BFE7DE'; g.fill(); g.stroke();
+  rr(g, x + 108, y - 132, 38, 84, 6); g.fill(); g.stroke();
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+}
+
+function drawCastle(L){
+  const cy = L.castleY, cx = 480;
+  g.save();
+  g.fillStyle = 'rgba(255,255,255,.92)';
+  puff(g, cx - 130, cy + 96, 68); puff(g, cx + 130, cy + 96, 72); puff(g, cx, cy + 104, 92);
+  g.lineWidth = 2.8; g.strokeStyle = INK; g.lineJoin = 'round';
+
+  const tower = (tx, tw, th, roof) => {
+    rr(g, tx - tw/2, cy + 60 - th, tw, th, 5);
+    g.fillStyle = '#FFF7EC'; g.fill(); g.stroke();
+    g.beginPath();
+    g.moveTo(tx - tw/2 - 7, cy + 60 - th);
+    g.lineTo(tx, cy + 60 - th - roof);
+    g.lineTo(tx + tw/2 + 7, cy + 60 - th);
+    g.closePath(); g.fillStyle = '#F58BB0'; g.fill(); g.stroke();
+    g.beginPath(); g.arc(tx, cy + 84 - th, 9, Math.PI, 0); g.lineTo(tx + 9, cy + 96 - th);
+    g.lineTo(tx - 9, cy + 96 - th); g.closePath();
+    g.fillStyle = '#7B5CD6'; g.fill(); g.stroke();
+  };
+  tower(cx - 96, 56, 116, 46);
+  tower(cx + 96, 56, 116, 46);
+  tower(cx, 88, 168, 62);
+
+  /* steag */
+  g.beginPath(); g.moveTo(cx, cy - 170); g.lineTo(cx, cy - 200); g.stroke();
+  g.beginPath(); g.moveTo(cx, cy - 200); g.lineTo(cx + 34, cy - 191); g.lineTo(cx, cy - 182);
+  g.closePath(); g.fillStyle = COIN; g.fill(); g.stroke();
+
+  /* poarta */
+  g.beginPath(); g.arc(cx, cy + 28, 20, Math.PI, 0); g.lineTo(cx + 20, cy + 60);
+  g.lineTo(cx - 20, cy + 60); g.closePath();
+  g.fillStyle = '#B98BE0'; g.fill(); g.stroke();
+
+  g.fillStyle = INK; g.font = '700 22px Fredoka, sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('CASTELUL PRINȚESEI', cx, cy + 128);
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.restore();
+}
+
+function drawHUD(L){
+  /* inimi */
+  for(let i = 0; i < 3; i++){
+    const x = 22 + i*32, y = 26, on = i < player.hearts;
+    g.save(); g.translate(x, y); g.scale(1.05, 1.05);
+    g.beginPath();
+    g.moveTo(0, 5);
+    g.bezierCurveTo(-11, -5, -6, -13, 0, -7);
+    g.bezierCurveTo(6, -13, 11, -5, 0, 5);
+    g.closePath();
+    g.fillStyle = on ? '#F2545B' : 'rgba(255,255,255,.42)'; g.fill();
+    g.lineWidth = 2.4; g.strokeStyle = INK; g.stroke();
+    g.restore();
+  }
+  /* punga cu banuti */
+  g.save();
+  rr(g, W - 132, 12, 112, 34, 17);
+  g.fillStyle = 'rgba(255,247,236,.94)'; g.fill();
+  g.lineWidth = 2.6; g.strokeStyle = INK; g.stroke();
+  drawCoin(W - 108, 29, tick * 0.07);
+  g.fillStyle = INK; g.font = '600 21px Fredoka, sans-serif';
+  g.textAlign = 'left'; g.textBaseline = 'middle';
+  g.fillText(String(purse), W - 90, 30);
+  g.restore();
+  /* bara de SUPER */
+  if(player.superT > 0){
+    const bw = 112, bx = W - 132, by = 52;
+    rr(g, bx, by, bw, 16, 8); g.fillStyle = 'rgba(255,247,236,.94)'; g.fill();
+    g.lineWidth = 2.4; g.strokeStyle = INK; g.stroke();
+    const frac = clamp(player.superT / (60*22), 0, 1);
+    rr(g, bx + 3, by + 3, Math.max(8, (bw - 6) * frac), 10, 5);
+    g.fillStyle = '#E5566A'; g.fill();
+    g.fillStyle = INK; g.font = '600 11px Fredoka, sans-serif';
+    g.textAlign = 'right'; g.textBaseline = 'middle';
+    g.fillText('SUPER', bx - 6, by + 8);
+    g.textAlign = 'left';
+  }
+
+  /* eticheta nivelului */
+  g.save();
+  g.fillStyle = 'rgba(46,36,56,.55)'; g.font = '500 15px Fredoka, sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  g.fillText(L.name + ' · ' + L.sub, W/2, 16);
+  /* bara de progres */
+  const pw = 190, px = (W - pw)/2, py = 38;
+  rr(g, px, py, pw, 7, 4); g.fillStyle = 'rgba(255,255,255,.55)'; g.fill();
+  const prog = L.mode === 'fly'
+    ? clamp((L.startY - player.y) / (L.startY - L.castleY), 0, 1)
+    : clamp(player.x / L.goalX, 0, 1);
+  rr(g, px, py, Math.max(7, pw*prog), 7, 4); g.fillStyle = '#7B5CD6'; g.fill();
+  g.restore();
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+}
+
+function render(){
+  const L = LEVELS[levelIdx];
+  g.clearRect(0,0,W,H);
+  drawBackdrop(L);
+
+  g.save();
+  const sx = shakeT > 0 ? (Math.random()-.5) * shakeT * 0.5 : 0;
+  const sy = shakeT > 0 ? (Math.random()-.5) * shakeT * 0.5 : 0;
+  g.translate(-cam + sx, -camY + sy);
+
+  if(L.mode === 'fly') drawCastle(L); else drawGoal(L);
+
+  for(const pl of L.platforms){
+    if(pl.x + pl.w < cam - 60 || pl.x > cam + W + 60) continue;
+    rr(g, pl.x, pl.y, pl.w, pl.h, 7);
+    g.fillStyle = L.theme === 'market' ? '#F7E4CC' : L.theme === 'forest' ? '#E9F5DA' : '#FFF0F6'; g.fill();
+    g.lineWidth = 2.6; g.strokeStyle = INK; g.stroke();
+    rr(g, pl.x + 6, pl.y + pl.h, pl.w - 12, 10, 4);
+    g.fillStyle = 'rgba(46,36,56,.18)'; g.fill();
+  }
+  for(const s of L.spikes){ if(s.x < cam + W + 60 && s.x + s.w > cam - 60) drawSpikes(s); }
+  for(const c of L.coins){ if(!c.got && c.x > cam - 40 && c.x < cam + W + 40) drawCoin(c.x, c.y, tick*0.08 + c.x*0.02); }
+  for(const m of L.monsters){ if(!m.dead && m.x < cam + W + 90 && m.x + m.w > cam - 90) drawMonster(m); }
+  for(const mu of L.mushrooms){ if(!mu.got && mu.x > cam - 60 && mu.x < cam + W + 60) drawMushroom(mu, tick*0.06 + mu.x*0.01); }
+  for(const b of balls) drawBall(b);
+  if(L.mode === 'fly'){
+    /* norul de pornire, ca sa aiba de unde sa isi ia zborul */
+    g.fillStyle = 'rgba(255,255,255,.9)';
+    puff(g, 90, L.startY + 78, 54); puff(g, 200, L.startY + 86, 44);
+  }
+
+  /* fetita */
+  const p = player;
+  if(p.superT > 0){
+    const fade = p.superT < 150 && Math.floor(tick/5) % 2 ? 0.25 : 1;
+    g.save();
+    const cx = p.x + p.w/2, cy = p.y + p.h/2;
+    for(let i = 0; i < 7; i++){
+      const a = tick*0.055 + i*(Math.PI*2/7);
+      g.globalAlpha = fade * (0.5 + Math.sin(tick*0.11 + i) * 0.35);
+      g.fillStyle = i % 2 ? '#FFC93C' : '#FFF3B0';
+      sparkle(g, cx + Math.cos(a)*27, cy + Math.sin(a)*33, 5);
+    }
+    g.restore();
+  }
+  if(!(p.invuln > 0 && Math.floor(tick/4) % 2)){
+    drawGirl(g, look, {
+      x: p.x + p.w/2, y: p.y + p.h + 4,
+      face: p.face, scale: 0.92,
+      legs: p.onGround ? p.walk : 1.1,
+      arms: p.onGround ? p.walk : -1.4,
+      sup: p.superT > 0,
+      wing: L.mode === 'fly' ? tick * 0.55 : p.walk
+    });
+  }
+
+  for(const q of pops){
+    g.save();
+    g.globalAlpha = clamp(q.t/34, 0, 1);
+    g.font = '700 19px Fredoka, sans-serif'; g.textAlign = 'center';
+    g.lineWidth = 4; g.strokeStyle = '#FFF7EC'; g.strokeText(q.txt, q.x, q.y);
+    g.fillStyle = q.col; g.fillText(q.txt, q.x, q.y);
+    g.restore();
+  }
+  g.restore();
+
+  drawHUD(L);
+}
+
+/* ---------------- panouri UI ---------------- */
+const panel = document.getElementById('panel');
+const card  = document.getElementById('card');
+
+function openPanel(html){
+  card.innerHTML = html;
+  panel.hidden = false;
+  card.scrollTop = 0;
+  /* focus pe actiunea principala — altfel Space/Enter cumpara din greseala */
+  const b = card.querySelector('.btn');
+  if(b) b.focus({ preventScroll:true });
+}
+function closePanel(){ panel.hidden = true; }
+
+function showIntro(){
+  state = STATE.INTRO;
+  openPanel(
+    '<p class="eyebrow">Un joc gândit de Anabelle</p>' +
+    '<h1>Aventura Anabellei</h1>' +
+    '<p class="lead">Patru niveluri: strânge bănuți prin <b>supermarket</b> și cumpără-ți hăinuțe la croitorie, treci prin <b>galerie</b> până la salon, taie <b>pădurea</b> până la vrăjitor — el te face zână — și apoi <b>zboară prin nori</b> la castelul prințesei.</p>' +
+    '<div class="keys">' +
+      '<span class="key">◀ ▶ mergi</span>' +
+      '<span class="key">▲ / Spațiu sari — de două ori, sari mai sus</span>' +
+      '<span class="key">🍄 ciupercă = SUPER ANABELLE</span>' +
+      '<span class="key">X sau F aruncă bile de foc</span>' +
+    '</div>' +
+    '<button class="btn" id="go" type="button">Începe joaca</button>'
+  );
+  document.getElementById('go').onclick = () => { closePanel(); state = STATE.PLAY; };
+}
+
+function itemCard(item, kind){
+  const worn   = look[kind] === item.id;
+  const has    = !!owned[item.id];
+  const afford = has || purse >= item.price;
+  const st     = worn ? 'worn' : (afford ? 'ok' : 'locked');
+  const label  = worn ? 'Purtată' : (has ? 'Ai deja' : item.price + ' <svg class="coin-ico" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.4" fill="#FFC93C" stroke="#2E2438" stroke-width="2"/><circle cx="10" cy="10" r="3.9" fill="none" stroke="#E39B12" stroke-width="1.8"/></svg>');
+  return '<button class="item" type="button" data-state="' + st + '" data-kind="' + kind + '" data-id="' + item.id + '"' +
+         (st === 'locked' ? ' disabled' : '') + '>' +
+         '<canvas width="130" height="160" data-prev="' + kind + ':' + item.id + '"></canvas>' +
+         '<span class="nm">' + item.name + '</span>' +
+         '<span class="pr">' + label + '</span></button>';
+}
+
+function paintPreviews(){
+  card.querySelectorAll('canvas[data-prev]').forEach(el => {
+    const parts = el.getAttribute('data-prev').split(':');
+    const prev = { outfit:look.outfit, hair:look.hair, makeup:look.makeup,
+                   wings:look.wings, fairy:look.fairy };
+    prev[parts[0]] = parts[1];
+    if(parts[0] === 'wings') prev.fairy = true;
+    const c = el.getContext('2d');
+    c.clearRect(0,0,130,160);
+    c.fillStyle = 'rgba(255,255,255,.55)';
+    rr(c, 8, 8, 114, 144, 10); c.fill();
+    drawGirl(c, prev, { x:65, y:150, scale:1.9, face:1 });
+  });
+}
+
+function wireShop(){
+  card.querySelectorAll('.item').forEach(el => {
+    el.onclick = () => {
+      const kind = el.getAttribute('data-kind'), id = el.getAttribute('data-id');
+      const list = kind === 'outfit' ? OUTFITS : kind === 'hair' ? HAIRS
+                 : kind === 'wings'  ? WINGS   : MAKEUPS;
+      const item = byId(list, id);
+      if(!owned[id]){
+        if(purse < item.price) return;
+        purse -= item.price; owned[id] = true; sfx.buy();
+      }
+      look[kind] = id;
+      if(state === STATE.SHOP)       showShop(true);
+      else if(state === STATE.FAIRY) showFairy(true);
+      else                           showSalon(true);
+    };
+  });
+}
+
+function showShop(keep){
+  state = STATE.SHOP;
+  openPanel(
+    '<p class="eyebrow">Croitoria de la capătul raftului</p>' +
+    '<h2>Alege-ți hăinuțele</h2>' +
+    '<div class="purse"><svg class="coin-ico" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.4" fill="#FFC93C" stroke="#2E2438" stroke-width="2"/><circle cx="10" cy="10" r="3.9" fill="none" stroke="#E39B12" stroke-width="1.8"/></svg> <b>' + purse + '</b> bănuți</div>' +
+    '<div class="items">' + OUTFITS.map(o => itemCard(o, 'outfit')).join('') + '</div>' +
+    '<button class="btn" id="next" type="button">Mai departe, la salon →</button>' +
+    '<p class="tiny">Poți schimba oricând între hăinuțele pe care le ai deja.</p>'
+  );
+  paintPreviews(); wireShop();
+  document.getElementById('next').onclick = () => startLevel(1);
+  if(!keep) sfx.win();
+}
+
+function startLevel(i){
+  levelIdx = i; resetPlayer();
+  cam = 0; camY = 0; pops = []; balls = [];
+  closePanel(); state = STATE.PLAY;
+}
+
+function showSalon(keep){
+  state = STATE.SALON;
+  openPanel(
+    '<p class="eyebrow">Salonul din galerie</p>' +
+    '<h2>Părul și machiajul</h2>' +
+    '<div class="purse"><svg class="coin-ico" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.4" fill="#FFC93C" stroke="#2E2438" stroke-width="2"/><circle cx="10" cy="10" r="3.9" fill="none" stroke="#E39B12" stroke-width="1.8"/></svg> <b>' + purse + '</b> bănuți</div>' +
+    '<p class="section-label">Coafura</p>' +
+    '<div class="items">' + HAIRS.map(o => itemCard(o, 'hair')).join('') + '</div>' +
+    '<p class="section-label">Machiajul</p>' +
+    '<div class="items">' + MAKEUPS.map(o => itemCard(o, 'makeup')).join('') + '</div>' +
+    '<button class="btn" id="fin" type="button">Mai departe, în pădure →</button>'
+  );
+  paintPreviews(); wireShop();
+  document.getElementById('fin').onclick = () => startLevel(2);
+  if(!keep) sfx.win();
+}
+
+function showFairy(keep){
+  state = STATE.FAIRY;
+  look.fairy = true;
+  openPanel(
+    '<p class="eyebrow">Vrăjitorul din pădure</p>' +
+    '<h2>Abracadabra… ești zână! ✨</h2>' +
+    '<p class="lead">Vrăjitorul îți dă aripi și o baghetă. De acum poți să zbori — ' +
+    'ține <b>▲</b> ca să urci, <b>▼</b> ca să cobori, și du-te sus prin nori până la castelul prințesei.</p>' +
+    '<div class="purse"><svg class="coin-ico" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.4" fill="#FFC93C" stroke="#2E2438" stroke-width="2"/><circle cx="10" cy="10" r="3.9" fill="none" stroke="#E39B12" stroke-width="1.8"/></svg> <b>' + purse + '</b> bănuți</div>' +
+    '<div class="items">' + WINGS.map(o => itemCard(o, 'wings')).join('') + '</div>' +
+    '<button class="btn" id="fly" type="button">Sus, la castel! ☁️</button>'
+  );
+  paintPreviews(); wireShop();
+  document.getElementById('fly').onclick = () => startLevel(3);
+  if(!keep) sfx.power();
+}
+
+function showEnd(){
+  state = STATE.END;
+  const o = byId(OUTFITS, look.outfit), h = byId(HAIRS, look.hair),
+        m = byId(MAKEUPS, look.makeup), wg = byId(WINGS, look.wings);
+  openPanel(
+    '<p class="eyebrow">Sfârșit fericit</p>' +
+    '<h1>Ai ajuns la castel!</h1>' +
+    '<canvas id="fin-prev" width="220" height="270" style="width:16cqw;height:19.6cqw;margin-top:1.4cqw"></canvas>' +
+    '<p class="lead">' + o.name + ' · ' + h.name + ' · ' + m.name + ' · ' + wg.name +
+      '<br>Ți-au mai rămas <b>' + purse + '</b> bănuți în buzunar.</p>' +
+    '<button class="btn" id="again" type="button">Încă o dată!</button>'
+  );
+  const c = document.getElementById('fin-prev').getContext('2d');
+  drawGirl(c, look, { x:110, y:256, scale:3.2, face:1, sup:true, wing:2.2 });
+  document.getElementById('again').onclick = freshGame;
+  sfx.win();
+}
+
+/* ---------------- bucla ---------------- */
+function loop(){
+  tick++;
+  if(state === STATE.PLAY) step();
+  render();
+  requestAnimationFrame(loop);
+}
+
+/* ---------------- butoane bara ---------------- */
+const muteBtn = document.getElementById('mute');
+muteBtn.onclick = () => { muted = !muted; muteBtn.textContent = muted ? '🔇 Sunet' : '🔊 Sunet'; };
+document.getElementById('restart').onclick = freshGame;
+
+freshGame();
+loop();
+})();
+</script>
+
+</body>
+</html>

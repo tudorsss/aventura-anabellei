@@ -5,7 +5,36 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="Un platformer în patru niveluri gândit de Anabelle: bănuți prin supermarket, croitorie, salon, vrăjitorul care o face zână, și zborul prin nori la castelul prințesei.">
 <meta name="theme-color" content="#FDF3E3">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%91%97%3C/text%3E%3C/svg%3E">
+
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Anabelle">
+
+<style>
+/* margini pentru telefoanele cu decupaj, cand jocul ruleaza ca aplicatie */
+@media (orientation:landscape) and (pointer:coarse){
+  body{
+    padding-left:max(2px, env(safe-area-inset-left));
+    padding-right:max(2px, env(safe-area-inset-right));
+  }
+}
+/* sfatul de instalare pe iPhone — apare doar in Safari, nu si in aplicatie */
+#instaleaza{
+  display:none; align-items:center; gap:10px;
+  font-family:'Nunito',system-ui,sans-serif; font-size:13px; line-height:1.35;
+  background:#FFF7EC; border:2.5px solid #2E2438; border-radius:14px;
+  padding:9px 12px; max-width:min(94vw,460px); box-shadow:0 3px 0 0 #2E2438;
+}
+#instaleaza b{font-family:'Fredoka',sans-serif}
+#instaleaza button{
+  margin-left:auto; flex:none; border:2px solid #2E2438; border-radius:999px;
+  background:#FFC93C; font:inherit; font-weight:700; padding:4px 12px; cursor:pointer;
+}
+</style>
 <title>Aventura Anabellei</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1543,5 +1572,41 @@ loop();
 })();
 </script>
 
+<div id="instaleaza">
+  <span>Pune jocul pe ecranul telefonului: apasă <b>Partajează</b>, apoi <b>Adaugă la ecranul principal</b>.</span>
+  <button type="button" id="instaleaza-nu">Am înțeles</button>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* service worker — face jocul sa mearga si fara internet */
+  if('serviceWorker' in navigator){
+    addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').catch(function(e){
+        console.warn('[pwa] service worker neinregistrat:', e && e.message);
+      });
+    });
+  }
+
+  /* sfatul de instalare: doar pe iPhone/iPad, in Safari, si doar o data */
+  var esteIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var caAplicatie = navigator.standalone === true ||
+                    matchMedia('(display-mode: standalone)').matches;
+  var refuzat = false;
+  try { refuzat = localStorage.getItem('anabelle-instalare') === 'nu'; } catch(e){}
+
+  if(esteIOS && !caAplicatie && !refuzat){
+    var el = document.getElementById('instaleaza');
+    el.style.display = 'flex';
+    document.getElementById('instaleaza-nu').onclick = function(){
+      el.style.display = 'none';
+      try { localStorage.setItem('anabelle-instalare', 'nu'); } catch(e){}
+    };
+  }
+})();
+</script>
 </body>
 </html>

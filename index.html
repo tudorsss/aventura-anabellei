@@ -192,6 +192,39 @@ h2{font-family:'Fredoka',sans-serif;font-weight:600;font-size:clamp(19px,4cqw,40
   margin-top:1.6cqw;text-align:left;padding-left:.4cqw;
 }
 
+/* ---------- alegerea nivelului ---------- */
+.levels{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(clamp(100px,17cqw,164px),1fr));
+  gap:1.2cqw;
+  margin:2cqw 0 .6cqw;
+}
+.lvl{
+  background:var(--paper-2);
+  border:2.5px solid var(--ink);
+  border-radius:12px;
+  padding:1cqw .7cqw 1.1cqw;
+  display:flex;flex-direction:column;align-items:center;gap:.3cqw;
+  cursor:pointer;font:inherit;color:inherit;text-align:center;
+  transition:transform .08s ease;
+}
+.lvl:hover{transform:translateY(-3px);background:var(--mint)}
+.lvl:focus-visible{outline:3px solid var(--grape);outline-offset:3px}
+.lvl .no{
+  font-family:'Fredoka',sans-serif;font-weight:700;
+  font-size:clamp(15px,2.6cqw,25px);line-height:1;
+}
+.lvl .nm{font-family:'Fredoka',sans-serif;font-weight:500;font-size:clamp(10px,1.6cqw,15px);line-height:1.15;text-wrap:balance}
+.lvl .em{font-size:clamp(15px,2.6cqw,26px);line-height:1}
+
+@media (orientation:portrait) and (pointer:coarse){
+  .panel .levels{grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px;margin:12px 0 4px}
+  .panel .lvl{padding:8px 5px 9px}
+  .panel .lvl .no{font-size:17px}
+  .panel .lvl .nm{font-size:11px}
+  .panel .lvl .em{font-size:18px}
+}
+
 /* ---------- touch pad ---------- */
 .pad{position:absolute;inset:auto 0 0 0;display:none;justify-content:space-between;padding:clamp(8px,2.2cqw,22px) clamp(10px,2.6cqw,26px);z-index:4;pointer-events:none}
 .pad.on{display:flex}
@@ -304,6 +337,7 @@ h2{font-family:'Fredoka',sans-serif;font-weight:600;font-size:clamp(19px,4cqw,40
   <div class="bar">
     <button id="mute" type="button">🔊 Sunet</button>
     <button id="restart" type="button">↺ De la început</button>
+    <button id="levels" type="button">☰ Nivelurile</button>
     <span class="note">Săgeți sau A / D ca să mergi · Sus, W sau Spațiu ca să sari</span>
   </div>
 </div>
@@ -410,13 +444,17 @@ function drawGirl(c, look, o){
   const face   = o.face   || 1;
   const scale  = o.scale  || 1;
   const arms   = o.arms   || 0;
+  const mood   = o.mood   || 'ok';   /* ok · wow · ouch · somn */
+  const squash = o.squash || 0;      /* 1 = turtita la aterizare */
+  const blink  = !!o.blink;
   const outfit = byId(OUTFITS, look.outfit);
   const hair   = byId(HAIRS,   look.hair);
   const mk     = look.makeup || 'none';
 
   c.save();
   c.translate(o.x||0, o.y||0);
-  c.scale(face*scale, scale);
+  /* turtirea se face din talpi in sus, ca la desene animate */
+  c.scale(face*scale*(1 + squash*0.22), scale*(1 - squash*0.26));
   c.lineWidth = 2.2; c.lineJoin = 'round'; c.lineCap = 'round';
 
   const lp = Math.sin(legs) * 6;
@@ -602,14 +640,51 @@ function drawGirl(c, look, o){
     c.beginPath(); c.moveTo(5,-62); c.lineTo(9,-67); c.lineTo(8,-61); c.closePath(); c.fill(); c.stroke();
   }
 
-  /* --- fata --- */
-  c.fillStyle = INK;
-  c.beginPath(); c.arc(-3.6,-52,1.7,0,7); c.fill();
-  c.beginPath(); c.arc( 4.2,-52,1.7,0,7); c.fill();
+  /* --- fata: ochii si gura spun ce simte --- */
+  c.fillStyle = INK; c.strokeStyle = INK;
+  if(mood === 'wow'){
+    /* ochi inchisi de bucurie, ca doua arcuri ^^ */
+    c.lineWidth = 1.8;
+    c.beginPath(); c.arc(-3.6,-51.4,2.6,Math.PI+0.35,-0.35); c.stroke();
+    c.beginPath(); c.arc( 4.2,-51.4,2.6,Math.PI+0.35,-0.35); c.stroke();
+  }else if(mood === 'ouch'){
+    /* ochi stransi, ca doua liniute */
+    c.lineWidth = 1.9;
+    c.beginPath(); c.moveTo(-6,-53); c.lineTo(-1.4,-51); c.stroke();
+    c.beginPath(); c.moveTo(6.6,-53); c.lineTo(2,-51); c.stroke();
+  }else if(blink || mood === 'somn'){
+    c.lineWidth = 1.8;
+    c.beginPath(); c.moveTo(-6,-52); c.lineTo(-1.4,-52); c.stroke();
+    c.beginPath(); c.moveTo(1.8,-52); c.lineTo(6.4,-52); c.stroke();
+  }else{
+    c.beginPath(); c.arc(-3.6,-52,1.7,0,7); c.fill();
+    c.beginPath(); c.arc( 4.2,-52,1.7,0,7); c.fill();
+    /* o luminita in ochi, ca sa para vie */
+    c.fillStyle = '#FFF7EC';
+    c.beginPath(); c.arc(-3,-52.7,0.6,0,7); c.fill();
+    c.beginPath(); c.arc(4.8,-52.7,0.6,0,7); c.fill();
+    c.fillStyle = INK;
+  }
+
   c.lineWidth = 1.6; c.strokeStyle = INK;
-  c.beginPath(); c.arc(0.4,-48.5,3.4,.2,Math.PI-.2); c.stroke();
+  if(mood === 'wow'){
+    /* gura deschisa de uimire */
+    c.beginPath(); c.ellipse(0.4,-47.6,2.9,3.4,0,0,7);
+    c.fillStyle = '#C4566A'; c.fill(); c.stroke();
+  }else if(mood === 'ouch'){
+    c.beginPath(); c.arc(0.4,-45.6,3.2,Math.PI+.25,-.25); c.stroke();
+  }else{
+    /* zambet — mai larg cand alearga */
+    const larg = 3.4 + Math.min(Math.abs(o.speed || 0), 5) * 0.16;
+    c.beginPath(); c.arc(0.4,-48.5,larg,.2,Math.PI-.2); c.stroke();
+  }
   c.lineWidth = 2.2;
 
+  if(mood === 'wow' && mk === 'none'){
+    c.fillStyle = 'rgba(245,110,150,.42)';
+    c.beginPath(); c.arc(-6.5,-49,2.8,0,7); c.fill();
+    c.beginPath(); c.arc( 7,-49,2.8,0,7); c.fill();
+  }
   if(mk === 'obraji' || mk === 'sclipici'){
     c.fillStyle = 'rgba(245,110,150,.5)';
     c.beginPath(); c.arc(-6.5,-49,2.6,0,7); c.fill();
@@ -855,7 +930,7 @@ const LEVELS = [
 /* ---------------- starea jocului ---------------- */
 const STATE = { INTRO:'intro', PLAY:'play', SHOP:'shop', SALON:'salon', FAIRY:'fairy',
                 CASTLE:'castle', STORY:'story', FIRE:'fire', TURTLE:'turtle',
-                PIZZERIA:'pizzeria', PIG:'pig', END:'end' };
+                PIZZERIA:'pizzeria', PIG:'pig', LEVELS:'levels', END:'end' };
 
 let state, levelIdx, cam, camY, tick, purse, owned, look, player, pops, shakeT, balls;
 let bitsGot, roostersGot, boos, bubbles;
@@ -892,7 +967,8 @@ function resetPlayer(){
   player = { x:(L.mode === 'slide' ? 40 : 60), y:startY(L), w:28, h:54,
              vx:0, vy:0, onGround:false, face:1, hearts:3,
              invuln:0, walk:0, jumpLock:false,
-             jumps:2, superT:0, cool:0 };
+             jumps:2, superT:0, cool:0,
+             mood:'ok', moodT:0, squashT:0, idleT:0, blinkAt:90 };
 }
 
 /* ---------------- input ---------------- */
@@ -905,6 +981,8 @@ addEventListener('keydown', e => {
   keys[k] = true;
 }, {passive:false});
 addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+/* P — pentru parinti: arata cadrele si pasii, ca sa se poata compara doua copii */
+addEventListener('keydown', e => { if(e.key === 'p' || e.key === 'P') fpsShow = !fpsShow; });
 function releaseAll(){ for(const k in keys) keys[k] = false; touchState.left = touchState.right = touchState.jump = touchState.fire = false; }
 addEventListener('blur', releaseAll);
 document.addEventListener('visibilitychange', () => { if(document.hidden) releaseAll(); });
@@ -942,6 +1020,7 @@ function hurt(dir){
   if(player.invuln > 0) return;
   if(player.superT > 0){
     player.superT = 0; player.invuln = 80; shakeT = 10;
+    player.mood = 'ouch'; player.moodT = 50;
     player.vx = (md === 'slide' || md === 'surf') ? player.vx * 0.4 : dir * 4.6;
     player.vy = md === 'fly' ? 5.5 : md === 'swim' ? 3.2 : -6.5;
     player.onGround = false;
@@ -950,6 +1029,7 @@ function hurt(dir){
     return;
   }
   player.hearts--; player.invuln = 96; shakeT = 14;
+  player.mood = 'ouch'; player.moodT = 70;
   player.vx = (md === 'slide' || md === 'surf') ? player.vx * 0.35 : dir * 5.4;
   player.vy = md === 'fly' ? 6.5 : md === 'swim' ? 3.6 : -7.5;
   player.onGround = false;
@@ -1014,6 +1094,7 @@ function step(){
   if(!jump){ p.jumpLock = false; if(!swimming && p.vy < -4.2) p.vy = -4.2; }
 
   /* Bile de foc — doar cat timp e SUPER ANABELLE. */
+  const wasOnGround = p.onGround, fellFrom = p.vy;
   if(p.cool > 0) p.cool--;
   if(fire && p.superT > 0 && p.cool === 0){
     p.cool = 15;
@@ -1091,11 +1172,19 @@ function step(){
   p.walk += p.onGround ? Math.abs(p.vx) * 0.19 : 0.06;
   if(p.invuln > 0) p.invuln--;
 
+  /* --- mimica: turtire la aterizare, clipit, plictiseala --- */
+  if(p.onGround && !wasOnGround && fellFrom > 3.4) p.squashT = 11;
+  if(p.squashT > 0) p.squashT--;
+  if(p.moodT > 0){ p.moodT--; if(p.moodT === 0) p.mood = 'ok'; }
+  if(Math.abs(p.vx) < 0.2 && p.onGround) p.idleT++; else p.idleT = 0;
+  if(tick > p.blinkAt){ p.blinkAt = tick + 70 + Math.floor(Math.abs(Math.sin(tick)) * 130); }
+
   /* --- banuti --- */
   for(const c of L.coins){
     if(c.got) continue;
     if(Math.abs((p.x+p.w/2) - c.x) < 22 && Math.abs((p.y+p.h/2) - c.y) < 26){
       c.got = true; purse++; sfx.coin();
+      p.mood = 'wow'; p.moodT = 26;
       pops.push({x:c.x, y:c.y, txt:'+1', t:44, col:COIND});
     }
   }
@@ -1105,6 +1194,7 @@ function step(){
     if(mu.got) continue;
     if(Math.abs((p.x+p.w/2) - mu.x) < 26 && Math.abs((p.y+p.h/2) - mu.y) < 34){
       mu.got = true; p.superT = 60*22; sfx.power();
+      p.mood = 'wow'; p.moodT = 70;
       pops.push({x:mu.x, y:mu.y - 20, txt:'SUPER ANABELLE!', t:110, col:'#E5566A'});
     }
   }
@@ -1114,6 +1204,7 @@ function step(){
     if(b.got) continue;
     if(Math.abs((p.x+p.w/2) - b.x) < 40){
       b.got = true; bitsGot++; sfx.coin();
+      p.mood = 'wow'; p.moodT = 60;
       pops.push({x:b.x, y:b.y - 18,
                  txt:(L.bitKind === 'stick' ? 'Vreasc ' : 'Ingredient ') + bitsGot + ' din ' + L.bitsNeeded,
                  t:80, col:'#D79A5B'});
@@ -1212,6 +1303,7 @@ function step(){
       if(Math.abs((p.x + p.w/2) - r.x) < 84){
         if(L.baked){
           r.follow = true; roostersGot++; sfx.coin();
+          p.mood = 'wow'; p.moodT = 60;
           pops.push({x:r.x, y:r.y - 34, txt:'Cotcodac! ' + roostersGot + ' din ' + L.roostersNeeded,
                      t:80, col:'#E5566A'});
         }else if(tick % 60 === 0){
@@ -2331,6 +2423,20 @@ function drawHUD(L){
   rr(g, px, py, Math.max(7, pw*prog), 7, 4); g.fillStyle = '#7B5CD6'; g.fill();
   g.restore();
   g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+
+  if(fpsShow){
+    const txt = fpsVal + ' cadre/s · ' + stepsPerSec + ' pași/s · ' +
+                (navigator.serviceWorker && navigator.serviceWorker.controller ? 'salvat local' : 'de la server');
+    g.save();
+    g.font = '600 14px Fredoka, sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle';
+    const w = g.measureText(txt).width + 20;
+    rr(g, 16, H - 34, w, 24, 12);
+    g.fillStyle = 'rgba(255,247,236,.92)'; g.fill();
+    g.lineWidth = 2; g.strokeStyle = INK; g.stroke();
+    g.fillStyle = INK; g.fillText(txt, 26, H - 22);
+    g.restore();
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  }
 }
 
 /* Sub apa torța sta in rucsac — o refolosim, nu o construim la fiecare cadru. */
@@ -2408,16 +2514,24 @@ function render(){
       drawPig(g, look.pig, { x: cx - 4, y: base - 24, scale: 0.62, face: 1 });
       drawGirl(g, look, {
         x: cx + 2, y: base - 42, face: 1, scale: 0.8,
-        legs: 0.9, arms: tick * 0.12, sup: p.superT > 0, wing: tick * 0.3
+        legs: 0.9, arms: tick * 0.12, sup: p.superT > 0, wing: tick * 0.3,
+        mood: p.mood, speed: 4, blink: tick > p.blinkAt - 7 && tick < p.blinkAt
       });
       g.restore();
     }else{
+      /* cand sta pe loc, respira si face cu mana din cand in cand */
+      const stand = p.idleT > 90 && p.mood === 'ok';
+      const wave  = stand && (p.idleT % 200) < 46;
       drawGirl(g, (L.mode === 'swim' && look.torch) ? swimLook() : look, {
         x: p.x + p.w/2, y: p.y + p.h + 4,
-        face: p.face, scale: 0.92,
+        face: p.face, scale: 0.92 + (stand ? Math.sin(tick*0.06)*0.008 : 0),
         legs: p.onGround ? p.walk : 1.1,
-        arms: p.onGround ? p.walk : -1.4,
+        arms: wave ? tick * 0.34 : (p.onGround ? p.walk : -1.4),
         sup: p.superT > 0,
+        speed: p.vx,
+        mood: p.mood,
+        squash: p.squashT > 0 ? p.squashT / 11 : 0,
+        blink: tick > p.blinkAt - 7 && tick < p.blinkAt,
         wing: L.mode === 'fly' ? tick * 0.55 : p.walk
       });
     }
@@ -2435,6 +2549,48 @@ function render(){
 
   if(L.theme === 'cave') drawDark(L);
   drawHUD(L);
+}
+
+/* ---------------- alegerea nivelului ---------------- */
+const LEVEL_EMOJI = ['🛒','🛍️','🌲','☁️','🦇','🐢','🛝','🍕','🐊'];
+
+/* Cand sari direct la un nivel, ii dam ce ar fi trebuit sa aiba pana acolo:
+   aripi de la vrajitor, torta de la foc, porcul de la cocosi. */
+function setupLookFor(i){
+  look.fairy = i >= 3;
+  look.torch = i >= 5 && i <= 8;
+  look.pizza = false;
+  if(i === 8 && !owned[look.pig]) look.pig = 'porcRoz';
+}
+
+function showLevels(fromIntro){
+  state = STATE.LEVELS;
+  const cards = LEVELS.map((L, i) =>
+    '<button class="lvl" type="button" data-lvl="' + i + '">' +
+      '<span class="em">' + LEVEL_EMOJI[i] + '</span>' +
+      '<span class="no">' + (i + 1) + '</span>' +
+      '<span class="nm">' + L.sub + '</span>' +
+    '</button>').join('');
+  openPanel(
+    '<p class="eyebrow">Alege de unde începi</p>' +
+    '<h2>Nivelurile</h2>' +
+    '<div class="levels">' + cards + '</div>' +
+    '<button class="btn" id="inapoi" type="button">' +
+      (fromIntro ? 'De la început, cu povestea ↩' : 'Înapoi la joacă ↩') + '</button>' +
+    '<p class="tiny">Toate nivelurile merg cu aceeași viteză. Apasă <b>P</b> ca să vezi cât de repede merge jocul.</p>'
+  );
+  card.querySelectorAll('.lvl').forEach(el => {
+    el.onclick = () => {
+      const i = Number(el.getAttribute('data-lvl'));
+      setupLookFor(i);
+      if(purse < 60) purse = 60;   /* ca sa poata proba hainutele si aici */
+      startLevel(i);
+    };
+  });
+  document.getElementById('inapoi').onclick = () => {
+    if(fromIntro) showIntro();
+    else { closePanel(); state = STATE.PLAY; }
+  };
 }
 
 /* ---------------- panouri UI ---------------- */
@@ -2463,9 +2619,11 @@ function showIntro(){
       '<span class="key">🍄 ciupercă = SUPER ANABELLE</span>' +
       '<span class="key">X sau F aruncă bile de foc</span>' +
     '</div>' +
-    '<button class="btn" id="go" type="button">Începe joaca</button>'
+    '<button class="btn" id="go" type="button">Începe joaca</button>' +
+    '<button class="btn ghost" id="alege" type="button">Alege nivelul ☰</button>'
   );
   document.getElementById('go').onclick = () => { closePanel(); state = STATE.PLAY; };
+  document.getElementById('alege').onclick = () => showLevels(true);
 }
 
 function itemCard(item, kind){
@@ -2721,11 +2879,46 @@ function showEnd(){
   sfx.win();
 }
 
-/* ---------------- bucla ---------------- */
-function loop(){
-  tick++;
-  if(state === STATE.PLAY) step();
-  render();
+/* ---------------- bucla ----------------
+   Fizica avanseaza in pasi ficsi de 1/60 de secunda, nu o data pe cadru.
+   Altfel viteza jocului e legata de ecran: pe un laptop la 120 Hz merge de
+   doua ori mai repede decat pe un telefon la 60, si aceeasi fila mutata in
+   fundal (unde Chrome incetineste cadrele) pare ca se blocheaza. */
+const STEP_MS = 1000 / 60;
+let acc = 0, lastFrame = 0;
+let fpsShow = false, fpsSamples = [], fpsVal = 0, stepsPerSec = 0, stepCount = 0, stepWindow = 0;
+
+function loop(now){
+  if(now === undefined) now = performance.now();
+  if(!lastFrame) lastFrame = now;
+  let dt = now - lastFrame;
+  lastFrame = now;
+  /* dupa o pauza (fila in fundal, capac inchis) nu recuperam un minut dintr-o data */
+  if(dt > 250) dt = 250;
+  if(dt < 0) dt = 0;
+
+  fpsSamples.push(dt);
+  if(fpsSamples.length > 40) fpsSamples.shift();
+
+  acc += dt;
+  let steps = 0;
+  while(acc >= STEP_MS && steps < 5){
+    tick++;
+    if(state === STATE.PLAY) step();
+    acc -= STEP_MS;
+    steps++;
+  }
+  stepCount += steps; stepWindow += dt;
+  if(stepWindow >= 500){
+    stepsPerSec = Math.round(stepCount * 1000 / stepWindow);
+    const sorted = fpsSamples.slice().sort((a,b) => a-b);
+    const med = sorted[Math.floor(sorted.length/2)] || 0;
+    fpsVal = med > 0 ? Math.round(1000/med) : 0;
+    stepCount = 0; stepWindow = 0;
+  }
+
+  /* Nu redesenam de doua ori aceeasi stare pe un ecran la 120 Hz. */
+  if(steps > 0 || fpsShow) render();
   requestAnimationFrame(loop);
 }
 
@@ -2733,9 +2926,13 @@ function loop(){
 const muteBtn = document.getElementById('mute');
 muteBtn.onclick = () => { muted = !muted; muteBtn.textContent = muted ? '🔇 Sunet' : '🔊 Sunet'; };
 document.getElementById('restart').onclick = freshGame;
+document.getElementById('levels').onclick = () => {
+  if(state === STATE.LEVELS) return;
+  showLevels(state === STATE.INTRO);
+};
 
 freshGame();
-loop();
+requestAnimationFrame(loop);
 })();
 </script>
 <div id="instaleaza">

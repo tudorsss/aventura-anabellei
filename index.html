@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Un platformer în patru niveluri gândit de Anabelle: bănuți prin supermarket, croitorie, salon, vrăjitorul care o face zână, și zborul prin nori la castelul prințesei.">
+<meta name="description" content="Un platformer în șapte niveluri gândit de Anabelle: supermarket, croitorie, salon, vrăjitorul care o face zână, zborul la castelul prințesei, peștera cu lilieci, râul cu țestoasa vorbitoare și toboganul fermecat.">
 <meta name="theme-color" content="#FDF3E3">
 
 <link rel="manifest" href="manifest.webmanifest">
@@ -523,6 +523,19 @@ function drawGirl(c, look, o){
     c.lineWidth = 2.2; c.restore();
   }
 
+  /* --- torța din peșteră --- */
+  if(look.torch){
+    c.save(); c.translate(-13, -34); c.rotate(0.32);
+    rr(c, -2.6, -2, 5.2, 21, 2.6); fs(c, '#8A6242');
+    const fl = 1 + Math.sin((o.legs || 0) * 3) * 0.13;
+    c.save(); c.scale(fl, fl);
+    c.beginPath(); c.moveTo(0,-3); c.quadraticCurveTo(7.5,-10, 0,-23); c.quadraticCurveTo(-7.5,-10, 0,-3);
+    c.closePath(); c.fillStyle = '#F2884B'; c.fill(); c.lineWidth = 1.6; c.strokeStyle = INK; c.stroke();
+    c.beginPath(); c.moveTo(0,-6); c.quadraticCurveTo(3.6,-10, 0,-17); c.quadraticCurveTo(-3.6,-10, 0,-6);
+    c.closePath(); c.fillStyle = '#FFD447'; c.fill();
+    c.restore(); c.restore(); c.lineWidth = 2.2;
+  }
+
   /* --- par in spate --- */
   c.fillStyle = hair.color; c.strokeStyle = INK;
   if(hair.id === 'bucle'){
@@ -619,7 +632,8 @@ function buildLevel(cfg){
     len: cfg.len, groundY: 470,
     mode: cfg.mode || 'walk', after: cfg.after,
     topY: cfg.topY, startY: cfg.startY, castleY: cfg.castleY,
-    platforms: [], spikes: [], monsters: [], coins: [], mushrooms: [],
+    platforms: [], spikes: [], monsters: [], coins: [], mushrooms: [], sticks: [],
+    waterTop: cfg.waterTop, collapseX: cfg.collapseX, collapsed: false,
     goalX: cfg.goalX, goalLabel: cfg.goalLabel
   };
   cfg.platforms.forEach(p => L.platforms.push({x:p[0], y:p[1], w:p[2], h:20}));
@@ -640,11 +654,19 @@ function buildLevel(cfg){
   }
 
   cfg.spikes.forEach(s => L.spikes.push({x:s[0], n:s[1], y:L.groundY-24, w:s[1]*24, h:24}));
-  cfg.monsters.forEach(m => L.monsters.push({
-    x:m[0], y:(m[5] !== undefined ? m[5] : L.groundY-32), w:62, h:32, x1:m[1], x2:m[2],
-    dir:1, spd:1.05 + (m[3]||0), dead:false, t:Math.random()*6, hue:m[4]||0,
-    kind: cfg.mode === 'fly' ? 'storm' : 'bug'
-  }));
+  cfg.monsters.forEach(m => {
+    const my = (m[5] !== undefined ? m[5] : L.groundY - 32);
+    L.monsters.push({
+      x:m[0], y:my, y0:my, w:cfg.mw || 62, h:cfg.mh || 32, x1:m[1], x2:m[2],
+      dir:1, spd:1.05 + (m[3]||0), dead:false, boo:false, t:Math.random()*6, hue:m[4]||0,
+      kind: cfg.kind || (cfg.mode === 'fly' ? 'storm' : 'bug')
+    });
+  });
+  (cfg.sticks || []).forEach(st => L.sticks.push({x:st[0], y:st[1], got:false}));
+  (cfg.stickOn || []).forEach(i => {
+    const pl = L.platforms[i];
+    if(pl) L.sticks.push({x: pl.x + pl.w/2, y: pl.y - 30, got:false});
+  });
   (cfg.mushrooms || []).forEach(m =>
     L.mushrooms.push(Array.isArray(m) ? {x:m[0], y:m[1], got:false} : {x:m, y:L.groundY - 20, got:false}));
 
@@ -656,6 +678,24 @@ function buildLevel(cfg){
   /* banuti in arc peste fiecare grup de tepi */
   L.spikes.forEach(s => L.coins.push(...coinArc(s.x + s.w/2, s.y - 46, 5, 62)));
   if(cfg.extraCoins) L.coins.push(...cfg.extraCoins);
+  return L;
+}
+
+/* Toboganul gonflabil: o singura panta unduita, descrisa de o formula. */
+function slideY(L, x){
+  const t = clamp(x / L.len, 0, 1);
+  return 165 + t*235 + Math.sin(x*0.0043)*38 + Math.sin(x*0.0017 + 1.2)*20;
+}
+function buildSlide(cfg){
+  const L = {
+    name:cfg.name, sub:cfg.sub, theme:'slide', mode:'slide', after:cfg.after,
+    len:cfg.len, groundY:470, goalX:cfg.len - 60, goalLabel:'GATA',
+    platforms:[], spikes:[], monsters:[], coins:[], mushrooms:[], sticks:[], collapsed:false
+  };
+  for(let x = 300; x < L.len - 180; x += 86){
+    const sus = Math.sin(x*0.0031) > 0.5;
+    L.coins.push({ x:x, y: slideY(L, x) - (sus ? 104 : 36), got:false });
+  }
   return L;
 }
 
@@ -694,7 +734,7 @@ const LEVELS = [
     mushrooms:[680, 2120, 3760]
   }),
   buildLevel({
-    mode:'fly', name:'Nivelul 4', sub:'Sus, prin nori', theme:'sky', after:'end',
+    mode:'fly', name:'Nivelul 4', sub:'Sus, prin nori', theme:'sky', after:'castle',
     len:960, startY:400, topY:-3400, castleY:-3180, goalX:0, goalLabel:'CASTEL',
     platforms:[], spikes:[],
     monsters:[[420,120,840,.5,0,120],[300,60,700,.35,1,-250],[560,200,900,.6,2,-620],
@@ -710,32 +750,73 @@ const LEVELS = [
       }
       return out;
     })()
-  })
+  }),
+  buildLevel({
+    name:'Nivelul 5', sub:'Peștera misterioasă', theme:'cave', len:5000, goalX:4780,
+    goalLabel:'FOCUL', after:'fire', kind:'bat', mw:46, mh:30, collapseX:1150,
+    platforms:[[380,362,150],[700,314,170],[1010,384,140],[1560,346,170],[1880,302,180],
+               [2220,374,150],[2540,320,180],[2900,362,160],[3220,308,190],[3560,370,150],
+               [3880,322,180],[4220,378,150],[4520,332,170]],
+    spikes:[[560,3],[1400,4],[2060,3],[2740,4],[3420,3],[4080,4]],
+    monsters:[[860,800,1060,.15,0,296],[1700,1640,1900,.2,1,262],[2360,2300,2560,.25,2,318],
+              [3060,3000,3260,.2,0,254],[3700,3640,3900,.3,1,300],[4380,4320,4580,.25,2,268]],
+    mushrooms:[1240, 3340],
+    stickOn:[3, 7, 11]
+  }),
+  buildLevel({
+    mode:'swim', name:'Nivelul 6', sub:'Râul din peșteră', theme:'water', len:4600,
+    goalX:4160, goalLabel:'ȚESTOASA', after:'turtle', waterTop:98,
+    kind:'jelly', mw:44, mh:46,
+    platforms:[], spikes:[],
+    monsters:[[700,600,980,-.15,0,180],[1200,1100,1500,-.1,1,330],[1750,1650,2050,-.15,2,220],
+              [2300,2200,2600,0,0,380],[2850,2750,3150,-.1,1,170],[3400,3300,3700,0,2,300],
+              [3820,3700,3980,-.05,0,240]],
+    mushrooms:[[1500,168],[3050,404]],
+    extraCoins:(function(){
+      const out = [];
+      for(let i = 0; i < 22; i++)
+        out.push(...coinArc(240 + i*196, 265 + Math.sin(i*0.9)*95, 5, 70));
+      return out;
+    })()
+  }),
+  buildSlide({ name:'Nivelul 7', sub:'Toboganul fermecat', after:'end', len:4200 })
 ];
 
 /* ---------------- starea jocului ---------------- */
-const STATE = { INTRO:'intro', PLAY:'play', SHOP:'shop', SALON:'salon', FAIRY:'fairy', END:'end' };
+const STATE = { INTRO:'intro', PLAY:'play', SHOP:'shop', SALON:'salon', FAIRY:'fairy',
+                CASTLE:'castle', STORY:'story', FIRE:'fire', TURTLE:'turtle', END:'end' };
 
 let state, levelIdx, cam, camY, tick, purse, owned, look, player, pops, shakeT, balls;
+let sticksGot, boos, bubbles;
 
 function freshGame(){
   state    = STATE.INTRO;
   levelIdx = 0;
   purse    = 0;
   owned    = { rupta:true, ciufulit:true, none:true, transparente:true };
-  look     = { outfit:'rupta', hair:'ciufulit', makeup:'none', wings:'transparente', fairy:false };
+  look     = { outfit:'rupta', hair:'ciufulit', makeup:'none', wings:'transparente',
+               fairy:false, torch:false };
   LEVELS.forEach(L => {
     L.coins.forEach(c => c.got = false);
     L.mushrooms.forEach(m => m.got = false);
-    L.monsters.forEach(m => { m.dead = false; m.x = (m.x1 + m.x2)/2; m.dir = 1; });
+    L.sticks.forEach(st => st.got = false);
+    L.collapsed = false;
+    L.monsters.forEach(m => { m.dead = false; m.boo = false; m.x = (m.x1 + m.x2)/2; m.y = m.y0; m.dir = 1; });
   });
   resetPlayer();
   cam = 0; camY = 0; tick = 0; pops = []; shakeT = 0; balls = [];
+  sticksGot = 0; boos = 0; bubbles = [];
   showIntro();
+}
+function startY(L){
+  if(L.mode === 'fly')   return L.startY;
+  if(L.mode === 'swim')  return 250;
+  if(L.mode === 'slide') return slideY(L, 54) - 54;
+  return L.groundY - 54;
 }
 function resetPlayer(){
   const L = LEVELS[levelIdx];
-  player = { x:60, y:(L.mode === 'fly' ? L.startY : L.groundY - 54), w:28, h:54,
+  player = { x:(L.mode === 'slide' ? 40 : 60), y:startY(L), w:28, h:54,
              vx:0, vy:0, onGround:false, face:1, hearts:3,
              invuln:0, walk:0, jumpLock:false,
              jumps:2, superT:0, cool:0 };
@@ -773,26 +854,36 @@ if(matchMedia('(pointer:coarse)').matches) document.getElementById('pad').classL
 function hit(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
 
 function hurt(dir){
+  const LV = LEVELS[levelIdx], md = LV.mode;
   if(player.invuln > 0) return;
   if(player.superT > 0){
     player.superT = 0; player.invuln = 80; shakeT = 10;
-    player.vx = dir * 4.6;
-    player.vy = LEVELS[levelIdx].mode === 'fly' ? 5.5 : -6.5;
+    player.vx = md === 'slide' ? player.vx * 0.4 : dir * 4.6;
+    player.vy = md === 'fly' ? 5.5 : md === 'swim' ? 3.2 : -6.5;
     player.onGround = false;
     pops.push({x:player.x+14, y:player.y, txt:'Vai, ciuperca!', t:70, col:'#E5566A'});
     sfx.hurt();
     return;
   }
   player.hearts--; player.invuln = 96; shakeT = 14;
-  const fly = LEVELS[levelIdx].mode === 'fly';
-  player.vx = dir * 5.4; player.vy = fly ? 6.5 : -7.5; player.onGround = false;
+  player.vx = md === 'slide' ? player.vx * 0.35 : dir * 5.4;
+  player.vy = md === 'fly' ? 6.5 : md === 'swim' ? 3.6 : -7.5;
+  player.onGround = false;
   sfx.hurt();
   if(player.hearts <= 0){
-    if(fly){
+    if(md === 'fly'){
       /* In zbor nu o trimitem tocmai jos — coboara putin si isi ia inimile inapoi. */
-      player.y = Math.min(LEVELS[levelIdx].startY, player.y + 420);
+      player.y = Math.min(LV.startY, player.y + 420);
+    }else if(md === 'swim'){
+      player.y = clamp(player.y - 80, LV.waterTop, LV.groundY - player.h);
+    }else if(md === 'slide'){
+      player.vx = 2.6;
+    }else if(LV.theme === 'cave'){
+      /* Iesirea e blocata: o ducem doar cativa pasi inapoi, nu la intrare. */
+      player.x = Math.max(LV.collapsed ? LV.collapseX + 40 : 60, player.x - 240);
+      player.y = LV.groundY - 54;
     }else{
-      player.x = 60; player.y = LEVELS[levelIdx].groundY - 54;
+      player.x = 60; player.y = LV.groundY - 54;
     }
     player.vx = 0; player.vy = 0;
     player.hearts = 3; player.invuln = 70;
@@ -806,17 +897,26 @@ function step(){
   const right = keys.arrowright || keys.d || touchState.right;
   const jump  = keys.arrowup    || keys.w || keys[' '] || touchState.jump;
   const fire  = keys.x || keys.f || touchState.fire;
-  const down  = keys.arrowdown  || keys.s;
-  const flying = L.mode === 'fly';
+  const down  = keys.arrowdown || keys.s || (L.mode === 'swim' && touchState.fire);
+  const flying   = L.mode === 'fly';
+  const swimming = L.mode === 'swim';
+  const sliding  = L.mode === 'slide';
 
-  if(left  && !right){ p.vx -= 0.85; p.face = -1; }
-  if(right && !left ){ p.vx += 0.85; p.face =  1; }
-  if(left === right)  p.vx *= 0.78;
-  p.vx = clamp(p.vx, -4.7, 4.7);
-  if(Math.abs(p.vx) < 0.05) p.vx = 0;
+  if(sliding){
+    /* Pe tobogan aluneca singura: stanga franeaza, dreapta o zoreste. */
+    p.face = 1;
+    p.vx += 0.4 + (right ? 0.24 : 0) - (left ? 0.55 : 0);
+    p.vx = clamp(p.vx, 2.1, 9.6);
+  }else{
+    if(left  && !right){ p.vx -= 0.85; p.face = -1; }
+    if(right && !left ){ p.vx += 0.85; p.face =  1; }
+    if(left === right)  p.vx *= 0.78;
+    p.vx = clamp(p.vx, -4.7, 4.7);
+    if(Math.abs(p.vx) < 0.05) p.vx = 0;
+  }
 
   /* Saritura dubla: o data de pe sol, inca o data in aer ca sa ajunga mai sus. */
-  if(!flying && jump && !p.jumpLock && p.jumps > 0){
+  if(!flying && !swimming && jump && !p.jumpLock && p.jumps > 0){
     const second = p.jumps === 1;
     p.vy = second ? -11.8 : -13.0;
     p.jumps--; p.onGround = false; p.jumpLock = true;
@@ -826,7 +926,7 @@ function step(){
         pops.push({x:p.x + 4 + i*4, y:p.y + p.h, txt:'·', t:22, col:'#BFE7DE'});
     }
   }
-  if(!jump){ p.jumpLock = false; if(p.vy < -4.2) p.vy = -4.2; }
+  if(!jump){ p.jumpLock = false; if(!swimming && p.vy < -4.2) p.vy = -4.2; }
 
   /* Bile de foc — doar cat timp e SUPER ANABELLE. */
   if(p.cool > 0) p.cool--;
@@ -847,6 +947,26 @@ function step(){
     p.y = clamp(p.y + p.vy, L.topY, L.startY);
     if(p.y >= L.startY && p.vy > 0) p.vy = 0;
     p.onGround = false; p.jumps = 2;
+  }else if(swimming){
+    /* In apa: sus urca, jos coboara, si totul se misca mai lenes. */
+    if(jump) p.vy -= 0.6;
+    if(down) p.vy += 0.5;
+    p.vy = (p.vy + 0.1) * 0.94;
+    p.vy = clamp(p.vy, -4.4, 4.4);
+    p.vx = clamp(p.vx * 0.93, -3.7, 3.7);
+    p.x = clamp(p.x + p.vx, 0, L.len - p.w);
+    p.y = clamp(p.y + p.vy, L.waterTop, L.groundY - p.h);
+    if(p.y <= L.waterTop     && p.vy < 0) p.vy = 0;
+    if(p.y >= L.groundY - p.h && p.vy > 0) p.vy = 0;
+    p.onGround = false; p.jumps = 2;
+    if(tick % 12 === 0) bubbles.push({x:p.x + 8 + Math.random()*12, y:p.y + 10, r:2 + Math.random()*3, t:90});
+  }else if(sliding){
+    p.vy = Math.min(p.vy + 0.62, 17);
+    p.x  = clamp(p.x + p.vx, 0, L.len);
+    p.y += p.vy;
+    const sy = slideY(L, p.x + p.w/2) - p.h;
+    p.onGround = false;
+    if(p.y >= sy){ p.y = sy; p.vy = 0; p.onGround = true; p.jumps = 1; }
   }else{
     p.vy = Math.min(p.vy + 0.63, 16);
     p.x = clamp(p.x + p.vx, 0, L.len - p.w);
@@ -885,6 +1005,15 @@ function step(){
     }
   }
 
+  /* --- vreascuri pentru foc --- */
+  for(const st of L.sticks){
+    if(st.got) continue;
+    if(Math.abs((p.x+p.w/2) - st.x) < 30 && Math.abs((p.y+p.h/2) - st.y) < 52){
+      st.got = true; sticksGot++; sfx.coin();
+      pops.push({x:st.x, y:st.y - 18, txt:'Vreasc ' + sticksGot + ' din 3', t:80, col:'#D79A5B'});
+    }
+  }
+
   /* --- bile de foc --- */
   for(let i = balls.length - 1; i >= 0; i--){
     const b = balls[i];
@@ -915,6 +1044,17 @@ function step(){
     if(m.dead) continue;
     m.t += 0.09;
     m.x += m.dir * m.spd;
+    if(m.kind === 'bat'){
+      m.y = m.y0 + Math.sin(m.t * 1.35) * 26;
+      if(!m.boo && Math.abs((p.x + p.w/2) - (m.x + m.w/2)) < 240){
+        m.boo = true; boos++;
+        pops.push({x:m.x + m.w/2, y:m.y - 12, txt:'Buu!', t:80, col:'#CBB6F2'});
+        beep(160, .2, 'sawtooth', .035, 0);
+        if(boos === 3)
+          pops.push({x:p.x + 14, y:p.y - 12, txt:'Nu mi-e frică!', t:110, col:'#BFE7DE'});
+      }
+    }
+    if(m.kind === 'jelly') m.y = m.y0 + Math.sin(m.t * 0.9) * 34;
     if(m.x < m.x1){ m.x = m.x1; m.dir = 1; }
     if(m.x + m.w > m.x2){ m.x = m.x2 - m.w; m.dir = -1; }
     if(hit(p, m)){
@@ -932,19 +1072,48 @@ function step(){
     if(hit(p, {x:s.x+3, y:s.y+8, w:s.w-6, h:s.h-8})) hurt(p.x + p.w/2 < s.x + s.w/2 ? -1 : 1);
   }
 
-  /* --- ușa / castelul --- */
-  const arrived = flying ? (p.y < L.castleY) : (p.x + p.w > L.goalX + 20);
+  /* --- peretele se prabuseste in spatele ei --- */
+  if(L.collapseX && !L.collapsed && p.x > L.collapseX){
+    L.collapsed = true; shakeT = 46;
+    beep(90, .5, 'sawtooth', .06, 0); beep(60, .7, 'sawtooth', .05, .12);
+    showCollapse();
+    return;
+  }
+  if(L.collapsed && p.x < L.collapseX - 120){ p.x = L.collapseX - 120; p.vx = 0; }
+
+  /* --- ușa / castelul / focul / țestoasa --- */
+  let arrived;
+  if(flying)       arrived = p.y < L.castleY;
+  else if(sliding) arrived = p.x > L.len - 90;
+  else             arrived = p.x + p.w > L.goalX + 20;
+
+  /* Focul nu se aprinde fara toate cele trei vreascuri. */
+  if(arrived && L.after === 'fire' && sticksGot < 3){
+    arrived = false;
+    p.x = Math.min(p.x, L.goalX - p.w + 18);
+    if(tick % 80 === 0)
+      pops.push({x:L.goalX + 30, y:L.groundY - 110,
+                 txt:'Mai caută vreascuri (' + sticksGot + ' din 3)', t:80, col:'#FFC93C'});
+  }
+
   if(arrived){
     sfx.win();
-    if(L.after === 'shop')       showShop();
-    else if(L.after === 'salon') showSalon();
-    else if(L.after === 'fairy') showFairy();
-    else                         showEnd();
+    if(L.after === 'shop')        showShop();
+    else if(L.after === 'salon')  showSalon();
+    else if(L.after === 'fairy')  showFairy();
+    else if(L.after === 'castle') showCastle();
+    else if(L.after === 'fire')   showFire();
+    else if(L.after === 'turtle') showTurtle();
+    else                          showEnd();
     return;
   }
 
-  cam  = clamp(p.x - W*0.38, 0, L.len - W);
+  cam  = clamp(p.x - W*0.38, 0, Math.max(0, L.len - W));
   camY = flying ? clamp(p.y - H*0.5, L.topY - 60, L.startY + 86 - H) : 0;
+  for(let i = bubbles.length - 1; i >= 0; i--){
+    const b = bubbles[i]; b.y -= 0.9; b.x += Math.sin(b.t * 0.14) * 0.4; b.t--;
+    if(b.t <= 0 || b.y < (L.waterTop || 0)) bubbles.splice(i, 1);
+  }
   for(let i = pops.length-1; i >= 0; i--){ pops[i].t--; pops[i].y -= 0.7; if(pops[i].t <= 0) pops.splice(i,1); }
   if(shakeT > 0) shakeT--;
 }
@@ -1030,9 +1199,332 @@ function drawForest(L){
   g.fillStyle = INK; g.fillRect(0, L.groundY - 4, W, 4);
 }
 
+
+/* ---------------- peștera, apa, toboganul ---------------- */
+function drawCave(L){
+  const sky = g.createLinearGradient(0, 0, 0, L.groundY);
+  sky.addColorStop(0, '#241C36'); sky.addColorStop(1, '#3C2F4A');
+  g.fillStyle = sky; g.fillRect(0, 0, W, L.groundY);
+
+  /* stalactite din tavan */
+  const far = cam * 0.4;
+  for(let i = -1; i < 20; i++){
+    const x = i*190 - (far % 190), hgt = 70 + ((i*53) % 90);
+    g.fillStyle = 'rgba(20,14,32,.55)';
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 46, 0); g.lineTo(x + 23, hgt); g.closePath(); g.fill();
+  }
+  /* bolovani in fundal */
+  const near = cam * 0.66;
+  for(let i = -1; i < 18; i++){
+    const x = i*215 - (near % 215);
+    g.fillStyle = 'rgba(18,12,30,.5)';
+    g.beginPath(); g.ellipse(x + 40, L.groundY - 26, 68, 44, 0, 0, 7); g.fill();
+    g.fillStyle = 'rgba(126,214,196,.16)';
+    g.beginPath(); g.arc(x + 128, L.groundY - 120, 3.4, 0, 7); g.fill();
+    g.beginPath(); g.arc(x + 168, L.groundY - 172, 2.6, 0, 7); g.fill();
+  }
+  /* podeaua */
+  g.fillStyle = '#41345A'; g.fillRect(0, L.groundY, W, H - L.groundY);
+  g.fillStyle = '#372B4D';
+  const tile = 64, off = cam % tile;
+  for(let x = -off; x < W; x += tile) g.fillRect(x, L.groundY, tile/2, H - L.groundY);
+  g.fillStyle = INK; g.fillRect(0, L.groundY - 4, W, 4);
+}
+
+function drawWater(L){
+  const wa = g.createLinearGradient(0, L.waterTop, 0, L.groundY);
+  wa.addColorStop(0, '#3E8FC4'); wa.addColorStop(1, '#1E4C7E');
+  g.fillStyle = wa; g.fillRect(0, 0, W, H);
+
+  /* tavanul de piatra si suprafata apei */
+  g.fillStyle = '#2A2140'; g.fillRect(0, 0, W, L.waterTop);
+  g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 3;
+  g.beginPath();
+  for(let x = 0; x <= W; x += 12)
+    g.lineTo(x, L.waterTop + Math.sin((x + cam*0.6 + tick*1.4) * 0.02) * 4);
+  g.stroke();
+
+  /* raze prin apa */
+  g.fillStyle = 'rgba(190,235,255,.09)';
+  for(let x = -((cam*0.3) % 260); x < W + 260; x += 260){
+    g.beginPath(); g.moveTo(x, L.waterTop); g.lineTo(x + 54, L.waterTop);
+    g.lineTo(x + 150, L.groundY); g.lineTo(x + 30, L.groundY); g.closePath(); g.fill();
+  }
+  /* alge pe fund */
+  const near = cam * 0.72;
+  for(let i = -1; i < 22; i++){
+    const x = i*168 - (near % 168);
+    g.strokeStyle = 'rgba(72,170,132,.55)'; g.lineWidth = 6; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(x, L.groundY);
+    g.quadraticCurveTo(x + Math.sin(tick*0.02 + i)*18, L.groundY - 44, x + Math.sin(tick*0.02 + i)*10, L.groundY - 82);
+    g.stroke();
+  }
+  g.lineCap = 'butt';
+  g.fillStyle = '#2C4A63'; g.fillRect(0, L.groundY, W, H - L.groundY);
+  g.fillStyle = INK; g.fillRect(0, L.groundY - 4, W, 4);
+}
+
+function drawSlideBg(L){
+  const t = clamp(player.x / L.len, 0, 1);
+  const sky = g.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, lerpHex('#2E2450', '#8FD0F0', t));
+  sky.addColorStop(1, lerpHex('#4A3C63', '#FFE7C4', t));
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+
+  /* soarele de la iesirea din pestera creste pe masura ce coboara */
+  g.globalAlpha = t;
+  g.fillStyle = '#FFF3B0';
+  g.beginPath(); g.arc(W - 130, 96, 40 + t*26, 0, 7); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.75)';
+  const near = cam * 0.5;
+  for(let i = -1; i < 14; i++){
+    const x = i*280 - (near % 280);
+    puff(g, x, 120 + ((i*61) % 120), 34);
+  }
+  g.globalAlpha = 1;
+  g.fillStyle = lerpHex('#3B3058', '#7EC98C', t);
+  g.fillRect(0, H - 46, W, 46);
+}
+
+function drawSlide(L){
+  const x0 = Math.max(0, cam - 80), x1 = Math.min(L.len, cam + W + 80);
+  const band = (off, col, wid) => {
+    g.beginPath();
+    for(let x = x0; x <= x1; x += 10) g.lineTo(x, slideY(L, x) + off);
+    g.lineWidth = wid; g.strokeStyle = col; g.lineCap = 'round'; g.lineJoin = 'round';
+    g.stroke();
+  };
+  band(9, INK, 34);                              /* conturul */
+  /* dungi de curcubeu, fiecare bucata cu culoarea ei */
+  const cols = ['#F2545B','#FFB020','#FFD447','#5FC98B','#4FB3D9','#8B6FD6'];
+  const seg = 150, from = Math.floor(x0/seg)*seg;
+  for(let sx = from; sx < x1; sx += seg){
+    g.beginPath();
+    for(let x = sx - 6; x <= sx + seg + 6; x += 8) g.lineTo(x, slideY(L, x) + 9);
+    g.lineWidth = 27; g.lineCap = 'butt'; g.lineJoin = 'round';
+    g.strokeStyle = cols[((sx/seg) % 6 + 6) % 6];
+    g.stroke();
+  }
+  band(2, 'rgba(255,255,255,.6)', 5);            /* luciul de plastic */
+
+  /* umflaturile de tobogan gonflabil */
+  for(let x = Math.floor(x0/70)*70; x <= x1; x += 70){
+    g.beginPath(); g.arc(x, slideY(L, x) + 9, 12, 0, 7);
+    g.fillStyle = 'rgba(255,255,255,.22)'; g.fill();
+  }
+  g.lineCap = 'butt';
+}
+
+function drawBat(m){
+  g.save(); g.translate(m.x + m.w/2, m.y + m.h/2);
+  g.scale(m.dir, 1);
+  g.lineWidth = 2.3; g.strokeStyle = INK; g.lineJoin = 'round';
+  const fl = Math.sin(m.t * 3.4) * 0.5;
+  for(const sx of [-1, 1]){
+    g.save(); g.scale(sx, 1); g.rotate(sx * 0 + fl * 0.3);
+    g.beginPath();
+    g.moveTo(6, -2);
+    g.quadraticCurveTo(20, -14 + fl*10, 30, -4 + fl*8);
+    g.lineTo(24, 2 + fl*5); g.lineTo(18, -2 + fl*4); g.lineTo(12, 4 + fl*2);
+    g.closePath();
+    g.fillStyle = '#6A5A8E'; g.fill(); g.stroke();
+    g.restore();
+  }
+  g.beginPath(); g.ellipse(0, 0, 11, 12, 0, 0, 7);
+  g.fillStyle = '#4E4270'; g.fill(); g.stroke();
+  /* urechiusele */
+  g.beginPath(); g.moveTo(-6, -10); g.lineTo(-9, -20); g.lineTo(-1, -12); g.closePath(); g.fill(); g.stroke();
+  g.beginPath(); g.moveTo( 6, -10); g.lineTo( 9, -20); g.lineTo( 1, -12); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = '#FFF7EC';
+  for(const ex of [-4.2, 4.2]){
+    g.beginPath(); g.arc(ex, -2, 3.4, 0, 7); g.fill(); g.stroke();
+    g.beginPath(); g.arc(ex + 0.8, -2, 1.5, 0, 7); g.fillStyle = INK; g.fill(); g.fillStyle = '#FFF7EC';
+  }
+  /* coltisorii */
+  g.beginPath(); g.moveTo(-2.6, 5); g.lineTo(-1, 9); g.lineTo(0.4, 5); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(1.6, 5); g.lineTo(3.2, 9); g.lineTo(4.6, 5); g.closePath(); g.fill();
+  g.restore();
+}
+
+function drawJelly(m){
+  g.save(); g.translate(m.x + m.w/2, m.y + m.h/2);
+  g.lineWidth = 2.3; g.strokeStyle = INK; g.lineJoin = 'round';
+  const sq = 1 + Math.sin(m.t * 2) * 0.12;
+  g.save(); g.scale(sq, 2 - sq);
+  g.beginPath(); g.arc(0, -4, 18, Math.PI, 0); g.lineTo(18, 2);
+  g.quadraticCurveTo(0, 10, -18, 2); g.closePath();
+  g.fillStyle = 'rgba(245,139,176,.72)'; g.fill(); g.stroke();
+  g.restore();
+  g.strokeStyle = 'rgba(255,214,232,.9)'; g.lineWidth = 3; g.lineCap = 'round';
+  for(let i = -2; i <= 2; i++){
+    g.beginPath(); g.moveTo(i*7, 4);
+    g.quadraticCurveTo(i*7 + Math.sin(m.t*2 + i)*7, 16, i*6 + Math.sin(m.t*2 + i)*10, 28);
+    g.stroke();
+  }
+  g.lineCap = 'butt';
+  g.fillStyle = INK;
+  g.beginPath(); g.arc(-5, -6, 1.9, 0, 7); g.fill();
+  g.beginPath(); g.arc( 5, -6, 1.9, 0, 7); g.fill();
+  g.restore();
+}
+
+function drawStick(st, ph){
+  if(st.got) return;
+  g.save(); g.translate(st.x, st.y + Math.sin(ph) * 3);
+  g.lineWidth = 2.2; g.strokeStyle = INK; g.lineJoin = 'round';
+  g.rotate(-0.25); rr(g, -18, -3, 36, 7, 3.5); g.fillStyle = '#A9713F'; g.fill(); g.stroke();
+  g.rotate(0.55);  rr(g, -16, -3, 32, 6, 3);   g.fillStyle = '#C68B52'; g.fill(); g.stroke();
+  g.restore();
+  g.save(); g.globalAlpha = .5; g.fillStyle = '#FFD447';
+  sparkle(g, st.x + 16, st.y - 20 + Math.sin(ph*1.4)*3, 5);
+  g.restore();
+}
+
+function drawRocks(L){
+  /* Gramada care astupa drumul inapoi. */
+  const x = L.collapseX - 150;
+  g.save();
+  g.lineWidth = 2.6; g.strokeStyle = INK; g.lineJoin = 'round';
+  const blocks = [[0,0,74,58],[52,-26,62,84],[16,-54,58,60],[92,10,58,48],[-30,14,60,44],[62,-72,46,46]];
+  for(let i = 0; i < blocks.length; i++){
+    const b = blocks[i];
+    rr(g, x + b[0], L.groundY - b[3] + b[1], b[2], b[3], 9);
+    g.fillStyle = i % 2 ? '#5B4B77' : '#4A3C63'; g.fill(); g.stroke();
+  }
+  g.restore();
+}
+
+function drawFire(L, lit){
+  const x = L.goalX + 60, y = L.groundY;
+  g.save();
+  g.lineWidth = 2.6; g.strokeStyle = INK; g.lineJoin = 'round';
+  /* pietrele din jur */
+  for(let i = 0; i < 6; i++){
+    const a = Math.PI + i * (Math.PI/5);
+    g.beginPath(); g.ellipse(x + Math.cos(a)*46, y - 6 + Math.sin(a)*8, 13, 9, 0, 0, 7);
+    g.fillStyle = '#6A5A8E'; g.fill(); g.stroke();
+  }
+  /* lemnele */
+  for(const r of [-0.4, 0.4, 0.05]){
+    g.save(); g.translate(x, y - 16); g.rotate(r);
+    rr(g, -30, -4, 60, 8, 4); g.fillStyle = '#A9713F'; g.fill(); g.stroke();
+    g.restore();
+  }
+  if(lit){
+    const f = 1 + Math.sin(tick * 0.24) * 0.1;
+    const gl = g.createRadialGradient(x, y - 50, 6, x, y - 50, 130);
+    gl.addColorStop(0, 'rgba(255,196,90,.55)'); gl.addColorStop(1, 'rgba(255,196,90,0)');
+    g.fillStyle = gl; g.beginPath(); g.arc(x, y - 50, 130, 0, 7); g.fill();
+    g.save(); g.translate(x, y - 18); g.scale(f, f);
+    g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(30, -26, 0, -78); g.quadraticCurveTo(-30, -26, 0, 0);
+    g.closePath(); g.fillStyle = '#F2884B'; g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(0, -6); g.quadraticCurveTo(14, -24, 0, -54); g.quadraticCurveTo(-14, -24, 0, -6);
+    g.closePath(); g.fillStyle = '#FFD447'; g.fill();
+    g.restore();
+  }
+  g.fillStyle = INK; g.font = '700 20px Fredoka, sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(lit ? 'FOCUL' : 'AICI FACEM FOCUL', x, y - 116);
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.restore();
+}
+
+function drawTurtle(L){
+  const x = L.goalX + 130, y = L.groundY - 74;
+  g.save(); g.translate(x, y);
+  g.lineWidth = 3; g.strokeStyle = INK; g.lineJoin = 'round';
+  const bob = Math.sin(tick * 0.03) * 7;
+  g.translate(0, bob);
+
+  /* inotatoare */
+  for(const s of [[-70, 40, -0.5], [58, 44, 0.5]]){
+    g.save(); g.translate(s[0], s[1]); g.rotate(s[2] + Math.sin(tick*0.05)*0.2);
+    g.beginPath(); g.ellipse(0, 0, 34, 15, 0, 0, 7);
+    g.fillStyle = '#6FBF8F'; g.fill(); g.stroke();
+    g.restore();
+  }
+  /* carapace */
+  g.beginPath(); g.ellipse(0, 0, 96, 66, 0, Math.PI, 0); g.lineTo(96, 10);
+  g.quadraticCurveTo(0, 34, -96, 10); g.closePath();
+  g.fillStyle = '#3E8F6B'; g.fill(); g.stroke();
+  g.fillStyle = '#2F7355';
+  for(const p of [[-52,-18],[0,-30],[52,-18],[-26,-2],[26,-2]]){
+    g.beginPath();
+    for(let i = 0; i < 6; i++){
+      const a = i * Math.PI/3, r = 20;
+      i ? g.lineTo(p[0] + Math.cos(a)*r, p[1] + Math.sin(a)*r*0.8)
+        : g.moveTo(p[0] + Math.cos(a)*r, p[1] + Math.sin(a)*r*0.8);
+    }
+    g.closePath(); g.fill(); g.lineWidth = 2; g.stroke(); g.lineWidth = 3;
+  }
+  /* runele magice care pulseaza */
+  g.fillStyle = 'rgba(255,243,176,' + (0.45 + Math.sin(tick*0.08)*0.3).toFixed(2) + ')';
+  for(const p of [[-52,-18],[0,-30],[52,-18]]) sparkle(g, p[0], p[1], 9);
+
+  /* cap */
+  g.save(); g.translate(-104, -6);
+  g.beginPath(); g.ellipse(0, 0, 34, 27, -0.1, 0, 7);
+  g.fillStyle = '#6FBF8F'; g.fill(); g.stroke();
+  g.fillStyle = '#FFF7EC';
+  g.beginPath(); g.arc(-12, -8, 7.4, 0, 7); g.fill(); g.stroke();
+  g.beginPath(); g.arc(8, -10, 7.4, 0, 7); g.fill(); g.stroke();
+  g.fillStyle = INK;
+  g.beginPath(); g.arc(-13.5, -8, 3.2, 0, 7); g.fill();
+  g.beginPath(); g.arc(6.5, -10, 3.2, 0, 7); g.fill();
+  g.lineWidth = 2.4;
+  g.beginPath(); g.arc(-4, 6, 9, 0.15, Math.PI - 0.15); g.stroke();
+  g.restore();
+  g.restore();
+
+  /* bula de vorbire */
+  g.save();
+  g.translate(x - 40, y - 118 + Math.sin(tick*0.03)*7);
+  rr(g, -96, -34, 192, 52, 16); g.fillStyle = '#FFF7EC'; g.fill();
+  g.lineWidth = 2.6; g.strokeStyle = INK; g.stroke();
+  g.beginPath(); g.moveTo(-36, 16); g.lineTo(-52, 36); g.lineTo(-18, 17); g.closePath();
+  g.fillStyle = '#FFF7EC'; g.fill(); g.stroke();
+  g.fillStyle = INK; g.font = '600 19px Fredoka, sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('Bună, Anabelle!', 0, -9);
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.restore();
+}
+
+function drawBubbles(){
+  for(const b of bubbles){
+    g.beginPath(); g.arc(b.x, b.y, b.r, 0, 7);
+    g.fillStyle = 'rgba(255,255,255,.3)'; g.fill();
+    g.lineWidth = 1.4; g.strokeStyle = 'rgba(255,255,255,.6)'; g.stroke();
+  }
+}
+
+/* Intunericul din pestera: vede doar cat lumineaza torța. */
+function drawDark(L){
+  const p = player;
+  const px = p.x + p.w/2 - cam, py = p.y + p.h/2 - camY;
+  const r  = (look.torch ? 330 : 198) + Math.sin(tick * 0.13) * 9;
+  const gr = g.createRadialGradient(px, py, r * 0.3, px, py, r);
+  gr.addColorStop(0, 'rgba(12,8,22,0)');
+  gr.addColorStop(0.62, 'rgba(12,8,22,.55)');
+  gr.addColorStop(1, 'rgba(12,8,22,.94)');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  /* focul lumineaza si el, chiar daca fetita e mai departe */
+  if(sticksGot >= 3){
+    const fx = L.goalX + 60 - cam, fy = L.groundY - 50;
+    const fg = g.createRadialGradient(fx, fy, 10, fx, fy, 200);
+    fg.addColorStop(0, 'rgba(255,196,90,.5)'); fg.addColorStop(1, 'rgba(255,196,90,0)');
+    g.globalCompositeOperation = 'lighter';
+    g.fillStyle = fg; g.beginPath(); g.arc(fx, fy, 200, 0, 7); g.fill();
+    g.globalCompositeOperation = 'source-over';
+  }
+}
+
 function drawBackdrop(L){
   if(L.theme === 'sky')    return drawSky(L);
   if(L.theme === 'forest') return drawForest(L);
+  if(L.theme === 'cave')   return drawCave(L);
+  if(L.theme === 'water')  return drawWater(L);
+  if(L.theme === 'slide')  return drawSlideBg(L);
   const market = L.theme === 'market';
   const sky = g.createLinearGradient(0,0,0,L.groundY);
   if(market){ sky.addColorStop(0,'#D6F2EA'); sky.addColorStop(1,'#A9DCD1'); }
@@ -1166,6 +1658,8 @@ function drawStorm(m){
 
 function drawMonster(m){
   if(m.kind === 'storm') return drawStorm(m);
+  if(m.kind === 'bat')   return drawBat(m);
+  if(m.kind === 'jelly') return drawJelly(m);
   const palettes = [['#7B5CD6','#B49AF0'], ['#3BB6A6','#8CE0D3'], ['#F2884B','#FFC08A']];
   const pal = palettes[m.hue % 3];
   const wob = Math.sin(m.t) * 2.4;
@@ -1294,6 +1788,40 @@ function drawHUD(L){
     g.lineWidth = 2.4; g.strokeStyle = INK; g.stroke();
     g.restore();
   }
+  /* vreascurile stranse pentru foc */
+  if(L.theme === 'cave'){
+    for(let i = 0; i < 3; i++){
+      g.save(); g.translate(28 + i*30, 66); g.rotate(-0.35);
+      rr(g, -12, -3, 24, 6, 3);
+      g.fillStyle = i < sticksGot ? '#C68B52' : 'rgba(255,255,255,.28)'; g.fill();
+      g.lineWidth = 2.2; g.strokeStyle = INK; g.stroke();
+      g.restore();
+    }
+  }
+
+  /* sageata catre vreascul ramas */
+  if(L.theme === 'cave' && sticksGot < 3){
+    let best = null, bd = 1e9;
+    for(const st of L.sticks){
+      if(st.got) continue;
+      const d = Math.abs(st.x - (player.x + player.w/2));
+      if(d < bd){ bd = d; best = st; }
+    }
+    if(best && (best.x < cam + 60 || best.x > cam + W - 60)){
+      const rightSide = best.x > player.x;
+      const ax = rightSide ? W - 46 : 46, ay = H/2 + Math.sin(tick*0.06)*8;
+      g.save(); g.translate(ax, ay); g.scale(rightSide ? 1 : -1, 1);
+      g.beginPath(); g.moveTo(-14, -14); g.lineTo(14, 0); g.lineTo(-14, 14); g.closePath();
+      g.fillStyle = 'rgba(255,201,60,.9)'; g.fill();
+      g.lineWidth = 2.6; g.strokeStyle = INK; g.stroke();
+      g.restore();
+      g.save(); g.translate(ax, ay + 30); g.rotate(-0.35);
+      rr(g, -13, -3, 26, 6, 3); g.fillStyle = '#C68B52'; g.fill();
+      g.lineWidth = 2.2; g.strokeStyle = INK; g.stroke();
+      g.restore();
+    }
+  }
+
   /* punga cu banuti */
   g.save();
   rr(g, W - 132, 12, 112, 34, 17);
@@ -1320,18 +1848,29 @@ function drawHUD(L){
 
   /* eticheta nivelului */
   g.save();
-  g.fillStyle = 'rgba(46,36,56,.55)'; g.font = '500 15px Fredoka, sans-serif';
+  const darkBg = L.theme === 'cave' || L.theme === 'water';
+  g.fillStyle = darkBg ? 'rgba(255,247,236,.8)' : 'rgba(46,36,56,.55)';
+  g.font = '500 15px Fredoka, sans-serif';
   g.textAlign = 'center'; g.textBaseline = 'top';
   g.fillText(L.name + ' · ' + L.sub, W/2, 16);
   /* bara de progres */
   const pw = 190, px = (W - pw)/2, py = 38;
-  rr(g, px, py, pw, 7, 4); g.fillStyle = 'rgba(255,255,255,.55)'; g.fill();
+  rr(g, px, py, pw, 7, 4); g.fillStyle = darkBg ? 'rgba(255,255,255,.3)' : 'rgba(255,255,255,.55)'; g.fill();
   const prog = L.mode === 'fly'
     ? clamp((L.startY - player.y) / (L.startY - L.castleY), 0, 1)
-    : clamp(player.x / L.goalX, 0, 1);
+    : clamp(player.x / (L.goalX || L.len), 0, 1);
   rr(g, px, py, Math.max(7, pw*prog), 7, 4); g.fillStyle = '#7B5CD6'; g.fill();
   g.restore();
   g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+}
+
+/* Sub apa torța sta in rucsac — o refolosim, nu o construim la fiecare cadru. */
+let _swimLook = null;
+function swimLook(){
+  if(!_swimLook) _swimLook = {};
+  for(const k in look) _swimLook[k] = look[k];
+  _swimLook.torch = false;
+  return _swimLook;
 }
 
 function render(){
@@ -1344,12 +1883,19 @@ function render(){
   const sy = shakeT > 0 ? (Math.random()-.5) * shakeT * 0.5 : 0;
   g.translate(-cam + sx, -camY + sy);
 
-  if(L.mode === 'fly') drawCastle(L); else drawGoal(L);
+  if(L.mode === 'fly')            drawCastle(L);
+  else if(L.theme === 'cave')     { drawFire(L, sticksGot >= 3); if(L.collapsed) drawRocks(L); }
+  else if(L.theme === 'water')    drawTurtle(L);
+  else if(L.mode === 'slide')     drawSlide(L);
+  else                            drawGoal(L);
+  if(L.theme === 'water') drawBubbles();
+  for(const st of L.sticks) if(st.x > cam - 60 && st.x < cam + W + 60) drawStick(st, tick*0.05 + st.x*0.01);
 
   for(const pl of L.platforms){
     if(pl.x + pl.w < cam - 60 || pl.x > cam + W + 60) continue;
     rr(g, pl.x, pl.y, pl.w, pl.h, 7);
-    g.fillStyle = L.theme === 'market' ? '#F7E4CC' : L.theme === 'forest' ? '#E9F5DA' : '#FFF0F6'; g.fill();
+    g.fillStyle = L.theme === 'market' ? '#F7E4CC' : L.theme === 'forest' ? '#E9F5DA'
+                : L.theme === 'cave'   ? '#6A5A8E' : '#FFF0F6'; g.fill();
     g.lineWidth = 2.6; g.strokeStyle = INK; g.stroke();
     rr(g, pl.x + 6, pl.y + pl.h, pl.w - 12, 10, 4);
     g.fillStyle = 'rgba(46,36,56,.18)'; g.fill();
@@ -1380,7 +1926,7 @@ function render(){
     g.restore();
   }
   if(!(p.invuln > 0 && Math.floor(tick/4) % 2)){
-    drawGirl(g, look, {
+    drawGirl(g, (L.mode === 'swim' && look.torch) ? swimLook() : look, {
       x: p.x + p.w/2, y: p.y + p.h + 4,
       face: p.face, scale: 0.92,
       legs: p.onGround ? p.walk : 1.1,
@@ -1400,6 +1946,7 @@ function render(){
   }
   g.restore();
 
+  if(L.theme === 'cave') drawDark(L);
   drawHUD(L);
 }
 
@@ -1422,7 +1969,7 @@ function showIntro(){
   openPanel(
     '<p class="eyebrow">Un joc gândit de Anabelle</p>' +
     '<h1>Aventura Anabellei</h1>' +
-    '<p class="lead">Patru niveluri: strânge bănuți prin <b>supermarket</b> și cumpără-ți hăinuțe la croitorie, treci prin <b>galerie</b> până la salon, taie <b>pădurea</b> până la vrăjitor — el te face zână — și apoi <b>zboară prin nori</b> la castelul prințesei.</p>' +
+    '<p class="lead">Șapte niveluri: strânge bănuți prin <b>supermarket</b> și cumpără-ți hăinuțe la croitorie, treci prin <b>galerie</b> până la salon, taie <b>pădurea</b> până la vrăjitor — el te face zână — <b>zboară prin nori</b> la castelul prințesei, apoi intră în <b>peștera</b> cu lilieci, fă un foc, <b>înoată</b> până la țestoasa vorbitoare și alunecă afară pe <b>toboganul fermecat</b>.</p>' +
     '<div class="keys">' +
       '<span class="key">◀ ▶ mergi</span>' +
       '<span class="key">▲ / Spațiu sari — de două ori, sari mai sus</span>' +
@@ -1498,7 +2045,13 @@ function showShop(keep){
 
 function startLevel(i){
   levelIdx = i; resetPlayer();
-  cam = 0; camY = 0; pops = []; balls = [];
+  cam = 0; camY = 0; pops = []; balls = []; bubbles = [];
+  if(LEVELS[i].theme === 'cave'){
+    sticksGot = 0; boos = 0;
+    LEVELS[i].collapsed = false;
+    LEVELS[i].sticks.forEach(st => st.got = false);
+    LEVELS[i].monsters.forEach(m => m.boo = false);
+  }
   closePanel(); state = STATE.PLAY;
 }
 
@@ -1536,14 +2089,89 @@ function showFairy(keep){
   if(!keep) sfx.power();
 }
 
+function showCastle(){
+  state = STATE.CASTLE;
+  openPanel(
+    '<p class="eyebrow">Sus, deasupra norilor</p>' +
+    '<h1>Ai ajuns la castel!</h1>' +
+    '<canvas id="fin-prev" width="220" height="270" style="width:14cqw;height:17.2cqw;margin-top:1.2cqw"></canvas>' +
+    '<p class="lead">Prințesa te îmbrățișează și îți face cu mâna din turn. Dar aventura nu se termină aici: ' +
+    'chiar în spatele castelului se cască o <b>peșteră întunecoasă</b>, și tu ești curioasă.</p>' +
+    '<button class="btn" id="cave" type="button">Intru în peșteră 🕳️</button>' +
+    '<p class="tiny">Înăuntru e beznă. Vezi doar cât în jurul tău — și se aud niște fâlfâituri…</p>'
+  );
+  const c = document.getElementById('fin-prev').getContext('2d');
+  drawGirl(c, look, { x:110, y:256, scale:3.2, face:1, wing:2.2 });
+  document.getElementById('cave').onclick = () => startLevel(4);
+  sfx.win();
+}
+
+function showCollapse(){
+  state = STATE.STORY;
+  openPanel(
+    '<p class="eyebrow">BUUUM!</p>' +
+    '<h2>Peretele s-a prăbușit!</h2>' +
+    '<p class="lead">Bolovanii au astupat drumul pe unde ai intrat. Nu mai poți ieși pe acolo — ' +
+    'trebuie să găsești <b>altă ieșire</b>. Dar e prea întuneric ca să vezi ceva.</p>' +
+    '<p class="lead">Strânge <b>trei vreascuri</b> din peșteră și fă un foc, ca să ai lumină.</p>' +
+    '<button class="btn" id="ok" type="button">Caut vreascuri 🪵</button>'
+  );
+  document.getElementById('ok').onclick = () => { closePanel(); state = STATE.PLAY; };
+}
+
+function showFire(){
+  state = STATE.FIRE;
+  look.torch = true;
+  openPanel(
+    '<p class="eyebrow">Trosc, pârâie focul</p>' +
+    '<h2>Ai făcut focul! 🔥</h2>' +
+    '<p class="lead">Îți aprinzi o torță de la flacără și, deodată, vezi mult mai departe. ' +
+    'În fundul peșterii curge un <b>râu</b> — pe acolo trebuie să fie ieșirea.</p>' +
+    '<div class="keys">' +
+      '<span class="key">▲ înoți în sus</span>' +
+      '<span class="key">▼ înoți în jos</span>' +
+      '<span class="key">◀ ▶ înainte și înapoi</span>' +
+      '<span class="key">pe telefon, 🔥 te scufundă</span>' +
+    '</div>' +
+    '<button class="btn" id="swim" type="button">Intru în apă 🌊</button>'
+  );
+  document.getElementById('swim').onclick = () => startLevel(5);
+  sfx.power();
+}
+
+function showTurtle(){
+  state = STATE.TURTLE;
+  openPanel(
+    '<p class="eyebrow">O broască-țestoasă uriașă, și vorbește!</p>' +
+    '<h2>„Te-am așteptat, Anabelle.”</h2>' +
+    '<p class="lead">Țestoasa magică e mai mare decât tine de trei ori și are pe carapace ' +
+    'semne care sclipesc. Îți spune încet:</p>' +
+    '<p class="lead">„Ai fost curajoasă cu liliecii și isteață cu focul. ' +
+    'Ieșirea e chiar după colț — dar nu se coboară pe scări. Se coboară pe ' +
+    '<b>toboganul gonflabil fermecat</b>. Ține-te bine!”</p>' +
+    '<div class="keys">' +
+      '<span class="key">Aluneci singură</span>' +
+      '<span class="key">▲ sari după bănuți</span>' +
+      '<span class="key">◀ frânezi · ▶ mergi mai iute</span>' +
+    '</div>' +
+    '<button class="btn" id="slide" type="button">La tobogan! 🛝</button>'
+  );
+  document.getElementById('slide').onclick = () => startLevel(6);
+  sfx.win();
+}
+
 function showEnd(){
   state = STATE.END;
+  look.torch = false;
   const o = byId(OUTFITS, look.outfit), h = byId(HAIRS, look.hair),
         m = byId(MAKEUPS, look.makeup), wg = byId(WINGS, look.wings);
   openPanel(
     '<p class="eyebrow">Sfârșit fericit</p>' +
-    '<h1>Ai ajuns la castel!</h1>' +
+    '<h1>Uraaa, ai ieșit din peșteră!</h1>' +
     '<canvas id="fin-prev" width="220" height="270" style="width:16cqw;height:19.6cqw;margin-top:1.4cqw"></canvas>' +
+    '<p class="lead">Toboganul te-a scos afară, drept în iarbă și în soare. ' +
+      'Ai fost curajoasă cu liliecii, ai făcut focul singură, ai înotat prin râu ' +
+      'și te-ai împrietenit cu o țestoasă vorbitoare.</p>' +
     '<p class="lead">' + o.name + ' · ' + h.name + ' · ' + m.name + ' · ' + wg.name +
       '<br>Ți-au mai rămas <b>' + purse + '</b> bănuți în buzunar.</p>' +
     '<button class="btn" id="again" type="button">Încă o dată!</button>'

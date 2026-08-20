@@ -920,8 +920,8 @@ const LEVELS = [
   }),
   buildSurf({
     name:'Nivelul 9', sub:'Râul cu crocodili', after:'end', len:5400,
-    planks:[[620,248,120],[1180,232,130],[1760,252,120],[2320,228,130],
-            [2900,250,120],[3480,230,130],[4060,252,120],[4640,236,130]],
+    planks:[[600,248,260],[1160,232,280],[1740,252,260],[2300,228,280],
+            [2880,250,260],[3460,230,280],[4040,252,260],[4620,236,280]],
     crocs:[[900,760,1060],[1450,1320,1620],[2050,1900,2200],[2620,2480,2780],
            [3200,3060,3360],[3760,3620,3920],[4340,4200,4500],[4900,4760,5060]]
   })
@@ -948,7 +948,8 @@ function freshGame(){
     L.bits.forEach(b => b.got = false);
     L.roosters.forEach(r => { r.follow = false; r.x = (r.x1 + r.x2)/2; });
     L.collapsed = false; L.baked = false;
-    L.monsters.forEach(m => { m.dead = false; m.boo = false; m.x = (m.x1 + m.x2)/2; m.y = m.y0; m.dir = 1; });
+    L.monsters.forEach(m => { m.dead = false; m.boo = false; m.sunk = false; m.sinkT = 0;
+                              m.x = (m.x1 + m.x2)/2; m.y = m.y0; m.dir = 1; });
   });
   resetPlayer();
   cam = 0; camY = 0; tick = 0; pops = []; shakeT = 0; balls = [];
@@ -968,7 +969,8 @@ function resetPlayer(){
              vx:0, vy:0, onGround:false, face:1, hearts:3,
              invuln:0, walk:0, jumpLock:false,
              jumps:2, superT:0, cool:0,
-             mood:'ok', moodT:0, squashT:0, idleT:0, blinkAt:90 };
+             mood:'ok', moodT:0, squashT:0, idleT:0, blinkAt:90,
+             grind:false, grindT:0 };
 }
 
 /* ---------------- input ---------------- */
@@ -1071,7 +1073,7 @@ function step(){
     /* Toboganul si raul o duc singure: stanga franeaza, dreapta o zoreste. */
     p.face = 1;
     p.vx += 0.4 + (right ? 0.24 : 0) - (left ? 0.55 : 0);
-    p.vx = surfing ? clamp(p.vx, 2.4, 8.4) : clamp(p.vx, 2.1, 9.6);
+    p.vx = surfing ? clamp(p.vx, 2.4, p.grind ? 11 : 8.4) : clamp(p.vx, 2.1, 9.6);
   }else{
     if(left  && !right){ p.vx -= 0.85; p.face = -1; }
     if(right && !left ){ p.vx += 0.85; p.face =  1; }
@@ -1140,10 +1142,20 @@ function step(){
     const prevBottom = p.y + p.h;
     p.y += p.vy;
     p.onGround = false;
+    p.grind = false;
     if(p.vy > 0){
       for(const pl of L.platforms){
         if(prevBottom <= pl.y + 2 && p.y + p.h >= pl.y && p.x + p.w > pl.x + 3 && p.x < pl.x + pl.w - 3){
-          p.y = pl.y - p.h; p.vy = 0; p.onGround = true; break;
+          p.y = pl.y - p.h; p.vy = 0; p.onGround = true; p.grind = true; break;
+        }
+      }
+    }
+    /* Ramane lipita de bara cat timp e deasupra ei, ca pe o balustrada de skate. */
+    if(!p.onGround && p.vy >= 0){
+      for(const pl of L.platforms){
+        const top = pl.y - p.h;
+        if(p.x + p.w > pl.x + 3 && p.x < pl.x + pl.w - 3 && p.y > top - 9 && p.y < top + 16){
+          p.y = top; p.vy = 0; p.onGround = true; p.grind = true; break;
         }
       }
     }
@@ -1151,7 +1163,16 @@ function step(){
       const wy = waveY(L, p.x + p.w/2) - p.h;
       if(p.y >= wy){ p.y = wy; p.vy = 0; p.onGround = true; }
     }
-    if(p.onGround) p.jumps = 1;
+    /* pe bara aluneca mai repede si scapara, ca pe o teava de skate */
+    if(p.grind){
+      p.vx = Math.min(p.vx + 0.22, 10.5);
+      if(!p.grindT) sfx.jump2();
+      p.grindT++;
+      if(p.grindT % 3 === 0)
+        pops.push({x:p.x + 2 + Math.random()*24, y:p.y + p.h + 4, txt:'✦',
+                   t:16, col:'#FFD447'});
+    }else p.grindT = 0;
+    if(p.onGround) p.jumps = 2;
   }else{
     p.vy = Math.min(p.vy + 0.63, 16);
     p.x = clamp(p.x + p.vx, 0, L.len - p.w);
@@ -1239,6 +1260,15 @@ function step(){
   /* --- monstruleti --- */
   for(const m of L.monsters){
     if(m.dead) continue;
+    /* crocodilul scufundat coboara si iese din joc — nu mai musca pe drum */
+    if(m.sunk){
+      m.sinkT++;
+      m.y += 2.4;
+      if(m.sinkT % 7 === 0)
+        bubbles.push({x:m.x + m.w/2 + (Math.random()-.5)*40, y:m.y, r:3 + Math.random()*3, t:70});
+      if(m.sinkT > 70) m.dead = true;
+      continue;
+    }
     m.t += 0.09;
     m.x += m.dir * m.spd;
     if(m.kind === 'bat'){
@@ -1256,7 +1286,13 @@ function step(){
     if(m.x < m.x1){ m.x = m.x1; m.dir = 1; }
     if(m.x + m.w > m.x2){ m.x = m.x2 - m.w; m.dir = -1; }
     if(hit(p, m)){
-      if(m.kind !== 'storm' && m.kind !== 'croc' && p.vy > 1.2 && (p.y + p.h) - m.y < 26){
+      if(m.kind === 'croc' && p.vy > 1.2 && (p.y + p.h) - m.y < 44){
+        /* aterizeaza pe el cu placa si il baga la fund */
+        m.sunk = true; m.sinkT = 0; p.vy = -9.4; purse += 2; shakeT = 8;
+        p.mood = 'wow'; p.moodT = 40;
+        sfx.stomp();
+        pops.push({x:m.x + m.w/2, y:m.y - 10, txt:'Pleosc!', t:60, col:'#4FB3D9'});
+      }else if(m.kind !== 'storm' && m.kind !== 'croc' && p.vy > 1.2 && (p.y + p.h) - m.y < 26){
         m.dead = true; p.vy = -10.2; purse += 2; sfx.stomp();
         pops.push({x:m.x + m.w/2, y:m.y - 6, txt:'+2', t:52, col:'#7B5CD6'});
       }else{
@@ -1361,6 +1397,7 @@ function step(){
     const b = bubbles[i]; b.y -= 0.9; b.x += Math.sin(b.t * 0.14) * 0.4; b.t--;
     if(b.t <= 0 || b.y < (L.waterTop || 0)) bubbles.splice(i, 1);
   }
+  if(L.theme === 'river') void 0;
   for(let i = pops.length-1; i >= 0; i--){ pops[i].t--; pops[i].y -= 0.7; if(pops[i].t <= 0) pops.splice(i,1); }
   if(shakeT > 0) shakeT--;
 }
@@ -1685,6 +1722,7 @@ function drawRiver(L){
 
 function drawCroc(m){
   g.save(); g.translate(m.x + m.w/2, m.y + m.h/2);
+  if(m.sunk){ g.globalAlpha = clamp(1 - m.sinkT/70, 0, 1); g.rotate(m.sinkT * 0.012); }
   g.scale(m.dir >= 0 ? 1 : -1, 1);
   g.lineWidth = 2.6; g.strokeStyle = INK; g.lineJoin = 'round';
   /* coada */
@@ -2466,7 +2504,7 @@ function render(){
   else                            drawGoal(L);
   if(L.ovenX) drawOven(L, L.baked);
   for(const r of L.roosters) if(r.x > cam - 80 && r.x < cam + W + 80) drawRooster(r);
-  if(L.theme === 'water') drawBubbles();
+  if(L.theme === 'water' || L.theme === 'river') drawBubbles();
   for(const b of L.bits) if(b.x > cam - 60 && b.x < cam + W + 60) drawBit(b, tick*0.05 + b.x*0.01, L.bitKind);
 
   for(const pl of L.platforms){
@@ -2697,7 +2735,7 @@ function startLevel(i){
   LEVELS[i].collapsed = false; LEVELS[i].baked = false;
   LEVELS[i].bits.forEach(b => b.got = false);
   LEVELS[i].roosters.forEach(r => { r.follow = false; r.x = (r.x1 + r.x2)/2; });
-  LEVELS[i].monsters.forEach(m => m.boo = false);
+  LEVELS[i].monsters.forEach(m => { m.boo = false; m.sunk = false; m.sinkT = 0; m.y = m.y0; });
   closePanel(); state = STATE.PLAY;
 }
 
@@ -2848,8 +2886,9 @@ function showPig(keep){
     '<div class="purse"><svg class="coin-ico" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.4" fill="#FFC93C" stroke="#2E2438" stroke-width="2"/><circle cx="10" cy="10" r="3.9" fill="none" stroke="#E39B12" stroke-width="1.8"/></svg> <b>' + purse + '</b> bănuți</div>' +
     '<div class="items">' + PIGS.map(o => itemCard(o, 'pig')).join('') + '</div>' +
     '<button class="btn" id="rau" type="button">La râu, pe placa de surf! 🏄</button>' +
-    '<p class="tiny">Porcul merge singur. <b>▲</b> sari peste crocodili, ' +
-    '<b>◀</b> frânezi, <b>▶</b> mergi mai iute.</p>'
+    '<p class="tiny">Porcul merge singur. <b>▲</b> sari — de două ori la rând sari mai sus. ' +
+    'Aterizează pe bare și alunecă pe ele ca pe un skate, iar dacă pici pe un crocodil ' +
+    'îl bagi la fund. <b>◀</b> frânezi, <b>▶</b> mergi mai iute.</p>'
   );
   paintPreviews(); wireShop();
   document.getElementById('rau').onclick = () => startLevel(8);

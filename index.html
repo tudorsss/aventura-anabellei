@@ -425,7 +425,12 @@ const MAKEUPS = [
 ];
 const byId = (arr,id) => arr.find(o => o.id === id) || arr[0];
 
-/* ---------------- desenul fetitei ---------------- */
+/* ---------------- desenul fetitei ----------------
+   Anabelle vrea sa se vada fata fetitei, nu profilul ei (cerut 2026-08-20,
+   dupa ce a vazut profilul). Desenul din profil ramane in drawGirl si se
+   aprinde de aici, daca se razgandeste. */
+const PROFIL_IN_JOC = false;
+
 function rr(c,x,y,w,h,r){
   c.beginPath();
   c.moveTo(x+r,y);
@@ -2749,7 +2754,7 @@ function render(){
       g.save(); g.translate(cx, base - 2); g.rotate(tilt); g.translate(-cx, -(base - 2));
       drawPig(g, look.pig, { x: cx - 4, y: base - 24, scale: 0.62, face: 1 });
       drawGirl(g, look, {
-        side: true,
+        side: PROFIL_IN_JOC,
         x: cx + 2, y: base - 42, face: 1, scale: 0.8,
         legs: 0.9, arms: tick * 0.12, sup: p.superT > 0, wing: tick * 0.3,
         mood: p.mood, speed: 4, blink: tick > p.blinkAt - 7 && tick < p.blinkAt
@@ -2760,7 +2765,7 @@ function render(){
       const stand = p.idleT > 90 && p.mood === 'ok';
       const wave  = stand && (p.idleT % 200) < 46;
       drawGirl(g, (L.mode === 'swim' && look.torch) ? swimLook() : look, {
-        side: true,
+        side: PROFIL_IN_JOC,
         x: p.x + p.w/2, y: p.y + p.h + 4,
         face: p.face, scale: 0.92 + (stand ? Math.sin(tick*0.06)*0.008 : 0),
         legs: p.onGround ? p.walk : 1.1,

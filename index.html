@@ -939,6 +939,8 @@ function buildLevel(cfg){
     ovenX: cfg.ovenX, baked: false, roosters: [], roostersNeeded: (cfg.roosters || []).length,
     waterTop: cfg.waterTop, collapseX: cfg.collapseX, collapsed: false,
     pits: (cfg.pits || []).map(p => ({a:p[0], b:p[1], caderi:0, pod:false})),
+    whirls: (cfg.whirls || []).map(w => ({x:w[0], y:w[1], r:w[2] || 92})),
+    logs: [],
     goalX: cfg.goalX, goalLabel: cfg.goalLabel
   };
   cfg.platforms.forEach(p => L.platforms.push({x:p[0], y:p[1], w:p[2], h:20}));
@@ -1015,7 +1017,8 @@ function buildSurf(cfg){
     name:cfg.name, sub:cfg.sub, theme:'river', mode:'surf', after:cfg.after,
     len:cfg.len, groundY:470, goalX:cfg.len - 60, goalLabel:'MALUL',
     platforms:[], spikes:[], monsters:[], coins:[], mushrooms:[], bits:[], roosters:[],
-    bitKind:'stick', bitsNeeded:0, roostersNeeded:0, collapsed:false
+    bitKind:'stick', bitsNeeded:0, roostersNeeded:0, collapsed:false,
+    whirls:[], logs:(cfg.logs || []).map(x => ({x:x, w:74, h:32}))
   };
   (cfg.planks || []).forEach(p => L.platforms.push({x:p[0], y:p[1], w:p[2], h:16}));
   (cfg.crocs || []).forEach(c => L.monsters.push({
@@ -1055,6 +1058,7 @@ function buildSlide(cfg){
     len:cfg.len, groundY:470, goalX:cfg.len - 60, goalLabel:'GATA',
     platforms:[], spikes:[], monsters:[], coins:[], mushrooms:[], bits:[], roosters:[],
     bitKind:'stick', bitsNeeded:0, roostersNeeded:0, collapsed:false,
+    whirls:[], logs:[],
     gaps: (cfg.gaps || []).map(g => ({ a:g[0], b:g[1], caderi:0, pod:false }))
   };
   for(let x = 300; x < L.len - 180; x += 86){
@@ -1143,6 +1147,16 @@ const LEVELS = [
               [2300,2200,2600,0,0,380],[2850,2750,3150,-.1,1,170],[3400,3300,3700,0,2,300],
               [3820,3700,3980,-.05,0,240]],
     mushrooms:[[1500,168],[3050,404]],
+    /* Vartejuri, ca sa mai fie ceva de ocolit acum ca meduzele doar pupa.
+       Stau in coridoarele DINTRE zonele meduzelor, nu peste ele: apa are doar
+       372 de pasi inaltime, iar o meduza care se leagana cere 145 de spatiu pe
+       verticala, deci un vartej pus peste drumul ei ar sta chiar pe meduza. Asa
+       devin porti: treci pe deasupra sau pe dedesubtul lor.
+       Adancimile ALTERNEAZA jos-sus-jos-sus-jos dinadins, si cele de jos sunt
+       puse EXACT pe banda pe care inoata cine nu apasa nimic (se lasa pe fund).
+       La mijlocul apei erau decorative: masurat, zero loviri fara sa ocoleasca
+       nimic. Asa trebuie serpuit printre ele. */
+    whirls:[[1040,411,58],[1575,160,60],[2125,395,74],[2675,160,60],[3225,395,74]],
     extraCoins:(function(){
       const out = [];
       for(let i = 0; i < 22; i++)
@@ -1170,7 +1184,9 @@ const LEVELS = [
     planks:[[600,248,260],[1160,232,280],[1740,252,260],[2300,228,280],
             [2880,250,260],[3460,230,280],[4040,252,260],[4620,236,280]],
     crocs:[[900,760,1060],[1450,1320,1620],[2050,1900,2200],[2620,2480,2780],
-           [3200,3060,3360],[3760,3620,3920],[4340,4200,4500],[4900,4760,5060]]
+           [3200,3060,3360],[3760,3620,3920],[4340,4200,4500],[4900,4760,5060]],
+    /* busteni, exact acolo unde nu e nicio bara deasupra: trebuie sarit */
+    logs:[1050, 2200, 3320, 4510, 5150]
   }),
   /* Nivelul gandit de Anabelle pe 2026-08-20: lumea dulciurilor, cu crapaturi
      peste care se sare si monstri cu mustata de vata care fug dupa ea.
@@ -1459,9 +1475,11 @@ function pupic(m){
      chiar costa, ca vine urmatorul crocodil. */
   if(p.onGround && md !== 'surf' && md !== 'slide'){ p.pupicT = 52; p.vx = 0; }
   p.mood = 'wow'; p.moodT = 120;
-  pops.push({x:m.x + m.w/2, y:m.y - 26, txt:'Îți dau un pupic de nu te vezi!', t:120, col:'#E5566A'});
-  for(let i = 0; i < 7; i++)
-    pops.push({x:p.x + 2 + i*4, y:p.y + 4 + (i % 3)*7, txt:'❤', t:64 + i*9, col:'#F2545B'});
+  /* Textul sus de tot, inimioarele in jurul ei: puse amandoua la inaltimea
+     animalului se calcau unele peste altele si nu se mai citea nimic. */
+  pops.push({x:m.x + m.w/2, y:m.y - 54, txt:'Îți dau un pupic de nu te vezi!', t:120, col:'#E5566A'});
+  for(let i = 0; i < 5; i++)
+    pops.push({x:p.x + p.w/2 + (i - 2)*13, y:p.y - 6 - (i % 2)*9, txt:'❤', t:60 + i*11, col:'#F2545B'});
   sfx.pupic();
 }
 
@@ -1534,8 +1552,44 @@ function step(){
     p.vy = (p.vy + 0.1) * 0.94;
     p.vy = clamp(p.vy, -4.4, 4.4);
     p.vx = clamp(p.vx * 0.93, -3.7, 3.7);
+    /* Vartejurile trag spre mijloc si o si rasucesc. Puterea (0.9) e aleasa prin
+       masuratoare, nu din ochi: cu 0.34 care se stingea de tot la margine nu o
+       misca deloc — intra si iesea din palnie fara sa pateasca nimic. Cu 0.9 o
+       duce pana in miez daca nu vasleste, si tot poate iesi cu toate inimile;
+       cu 2.2 nu mai poate iesi fara sa plateasca, adica devine fundatura, nu
+       obstacol. De aceea nici nu se stinge de tot la margine (0.35 ramane). */
+    for(const v of L.whirls){
+      const dx = v.x - (p.x + p.w/2), dy = v.y - (p.y + p.h/2);
+      const d = Math.sqrt(dx*dx + dy*dy);
+      if(d > v.r || d < 0.01) continue;
+      const forta = 0.9 * (0.35 + 0.65 * (1 - d/v.r));
+      p.vx += (dx/d) * forta - (dy/d) * forta * 0.6;
+      p.vy += (dy/d) * forta + (dx/d) * forta * 0.6;
+    }
     p.x = clamp(p.x + p.vx, 0, L.len - p.w);
     p.y = clamp(p.y + p.vy, L.waterTop, L.groundY - p.h);
+    /* Miezul o invarte si o scuipa afara. E 0.65 din palnie, nu 0.3: cu un miez
+       mic trecea pe langa el fara sa pateasca nimic — masurat, intra in trei
+       vartejuri din cinci si iesea cu toate inimile, fiindca la 3.7 pasi pe
+       cadru sta inauntru vreo 18 cadre si tragerea n-o duce pana la mijloc. */
+    for(const v of L.whirls){
+      if(p.invuln > 0) break;          /* nu o mai zvarle cat e inca ametita */
+      const dx = v.x - (p.x + p.w/2), dy = v.y - (p.y + p.h/2);
+      const d = Math.sqrt(dx*dx + dy*dy);
+      if(d >= v.r * 0.65) continue;
+      hurt(0);
+      /* O scuipa afara PE ORIZONTALA si INCOLO, in partea in care inota. Doua
+         motive, amandoua masurate: pe raza o scuipa in jos cand vartejul e
+         deasupra ei — adica in podea, unde y se plafoneaza si ea ramane
+         inauntru (42 de loviri intr-un nivel); iar scuipata INAPOI se intoarce
+         si intra iar, la nesfarsit. Asa plateste o inima si merge mai departe,
+         ca la puntea de pe tobogan: un obstacol nu are voie sa faca bucla. */
+      const spre = p.vx >= 0 ? 1 : -1;
+      p.x = clamp(v.x + spre * (v.r + 44) - p.w/2, 0, L.len - p.w);
+      p.vx = spre * 1.6; p.vy = 0;
+      pops.push({x:p.x + 14, y:p.y - 14, txt:'Vâââj! Ocolește vârtejul', t:100, col:'#4FB3D9'});
+      break;
+    }
     if(p.y <= L.waterTop     && p.vy < 0) p.vy = 0;
     if(p.y >= L.groundY - p.h && p.vy > 0) p.vy = 0;
     p.onGround = false; p.jumps = 2;
@@ -1810,6 +1864,13 @@ function step(){
   /* --- tepi --- */
   for(const s of L.spikes){
     if(hit(p, {x:s.x+3, y:s.y+8, w:s.w-6, h:s.h-8})) hurt(p.x + p.w/2 < s.x + s.w/2 ? -1 : 1);
+  }
+
+  /* --- bustenii de pe rau: se sare peste ei --- */
+  for(const bl of L.logs){
+    const by = waveY(L, bl.x + bl.w/2) - bl.h + 8;
+    if(hit(p, {x:bl.x + 7, y:by + 3, w:bl.w - 14, h:bl.h - 6}))
+      hurt(p.x + p.w/2 < bl.x + bl.w/2 ? -1 : 1);
   }
 
   /* --- cuptorul: fara ingrediente nu se coace nimic --- */
@@ -2623,6 +2684,59 @@ function drawTurtle(L){
   g.restore();
 }
 
+/* Vartejul din raul din pestera: o palnie cu dungi care se rasucesc, si un
+   miez inchis la culoare — acolo doare. */
+function drawWhirl(v){
+  g.save(); g.translate(v.x, v.y); g.rotate(tick * 0.035);
+  for(let k = 0; k < 3; k++){
+    g.beginPath(); g.arc(0, 0, v.r * (0.92 - k*0.22), 0, 7);
+    g.fillStyle = 'rgba(18,58,88,' + (0.1 + k*0.08).toFixed(2) + ')'; g.fill();
+  }
+  g.strokeStyle = 'rgba(214,242,255,.72)'; g.lineWidth = 4; g.lineCap = 'round';
+  for(let b = 0; b < 3; b++){
+    g.beginPath();
+    for(let i = 0; i <= 26; i++){
+      const t = i/26, a = b*(Math.PI*2/3) + t*3.4, r = v.r * (0.94 - t*0.7);
+      i ? g.lineTo(Math.cos(a)*r, Math.sin(a)*r) : g.moveTo(Math.cos(a)*r, Math.sin(a)*r);
+    }
+    g.stroke();
+  }
+  g.lineCap = 'butt';
+  g.beginPath(); g.arc(0, 0, v.r*0.3, 0, 7);
+  g.fillStyle = 'rgba(8,30,52,.6)'; g.fill();
+  g.lineWidth = 2.4; g.strokeStyle = 'rgba(255,255,255,.45)'; g.stroke();
+  g.restore();
+}
+
+/* Bustean plutind pe val, cu o creanga in sus ca sa se vada de departe. */
+function drawLog(L, bl){
+  const cx = bl.x + bl.w/2, y = waveY(L, cx) - bl.h + 8;
+  g.save(); g.translate(cx, y + bl.h/2);
+  g.rotate(Math.sin(tick*0.03 + bl.x*0.01) * 0.05);
+  g.lineWidth = 2.6; g.strokeStyle = INK; g.lineJoin = 'round';
+  /* creanga, desenata prima ca sa iasa din spatele busteanului */
+  g.lineCap = 'round';
+  g.strokeStyle = '#6B4A32'; g.lineWidth = 6;
+  g.beginPath(); g.moveTo(-8, -bl.h/2 + 6); g.lineTo(-19, -bl.h/2 - 18); g.stroke();
+  g.strokeStyle = '#5FC98B'; g.lineWidth = 4;
+  g.beginPath();
+  g.moveTo(-19, -bl.h/2 - 18); g.lineTo(-28, -bl.h/2 - 25);
+  g.moveTo(-19, -bl.h/2 - 18); g.lineTo(-12, -bl.h/2 - 28);
+  g.stroke();
+  g.lineCap = 'butt'; g.strokeStyle = INK; g.lineWidth = 2.6;
+  rr(g, -bl.w/2, -bl.h/2, bl.w, bl.h, bl.h/2);
+  g.fillStyle = '#8A6242'; g.fill(); g.stroke();
+  g.strokeStyle = 'rgba(46,36,56,.32)'; g.lineWidth = 2;
+  for(const ox of [-16, -2, 12]){
+    g.beginPath(); g.moveTo(ox, -bl.h/2 + 6); g.lineTo(ox + 3, bl.h/2 - 6); g.stroke();
+  }
+  g.beginPath(); g.ellipse(bl.w/2 - 6, 0, 6, bl.h/2 - 3, 0, 0, 7);
+  g.fillStyle = '#C6996B'; g.fill(); g.lineWidth = 2.4; g.strokeStyle = INK; g.stroke();
+  g.beginPath(); g.ellipse(bl.w/2 - 6, 0, 3, bl.h/2 - 9, 0, 0, 7);
+  g.lineWidth = 1.6; g.strokeStyle = '#8A6242'; g.stroke();
+  g.restore();
+}
+
 function drawBubbles(){
   for(const b of bubbles){
     g.beginPath(); g.arc(b.x, b.y, b.r, 0, 7);
@@ -3282,6 +3396,8 @@ function render(){
     g.fillStyle = 'rgba(46,36,56,.18)'; g.fill();
   }
   for(const s of L.spikes){ if(s.x < cam + W + 60 && s.x + s.w > cam - 60) drawSpikes(s); }
+  for(const v of L.whirls){ if(v.x > cam - 160 && v.x < cam + W + 160) drawWhirl(v); }
+  for(const bl of L.logs){ if(bl.x + bl.w > cam - 90 && bl.x < cam + W + 90) drawLog(L, bl); }
   for(const c of L.coins){ if(!c.got && c.x > cam - 40 && c.x < cam + W + 40) drawCoin(c.x, c.y, tick*0.08 + c.x*0.02); }
   for(const m of L.monsters){ if(!m.dead && m.x < cam + W + 90 && m.x + m.w > cam - 90) drawMonster(m); }
   for(const mu of L.mushrooms){ if(!mu.got && mu.x > cam - 60 && mu.x < cam + W + 60) drawMushroom(mu, tick*0.06 + mu.x*0.01); }
@@ -3593,6 +3709,7 @@ function showFire(){
       '<span class="key">▼ înoți în jos</span>' +
       '<span class="key">◀ ▶ înainte și înapoi</span>' +
       '<span class="key">pe telefon, 🔥 te scufundă</span>' +
+      '<span class="key">🌀 șerpuiește printre vârtejuri — te trag la mijloc</span>' +
     '</div>' +
     '<button class="btn" id="swim" type="button">Intru în apă 🌊</button>'
   );
@@ -3666,7 +3783,8 @@ function showPig(keep){
     '<button class="btn" id="rau" type="button">La râu, pe placa de surf! 🏄</button>' +
     '<p class="tiny">Porcul merge singur. <b>▲</b> sari — de două ori la rând sari mai sus. ' +
     'Aterizează pe bare și alunecă pe ele ca pe un skate, iar dacă pici pe un crocodil ' +
-    'îl bagi la fund. Crocodilii nu mușcă — te pupă și te lasă să mergi mai departe. ' +
+    'îl bagi la fund. Crocodilii nu mușcă — te pupă și te lasă să mergi mai departe, ' +
+    'dar <b>bușteni</b> plutesc pe apă și peste ăia chiar trebuie sărit. ' +
     '<b>◀</b> frânezi, <b>▶</b> mergi mai iute.</p>'
   );
   paintPreviews(); wireShop();

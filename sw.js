@@ -3,7 +3,7 @@
    la cache cand nu e internet. Restul: cache-first, sunt fisiere care nu
    se schimba decat la un deploy nou (si atunci se schimba VERSION). */
 
-const VERSION = 'v10';
+const VERSION = 'v11';
 const CACHE   = 'anabelle-' + VERSION;
 
 const SHELL = [

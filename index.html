@@ -1020,7 +1020,8 @@ function buildSurf(cfg){
   (cfg.planks || []).forEach(p => L.platforms.push({x:p[0], y:p[1], w:p[2], h:16}));
   (cfg.crocs || []).forEach(c => L.monsters.push({
     x:c[0], y:300, y0:300, w:76, h:34, x1:c[1], x2:c[2],
-    dir:-1, spd:0.5 + (c[3] || 0), dead:false, boo:false, t:Math.random()*6, hue:0, kind:'croc'
+    dir:-1, spd:0.5 + (c[3] || 0), dead:false, boo:false, t:Math.random()*6, hue:0, kind:'croc',
+    pupic:0, rusine:0, seek:false, blocat:false, pas:0
   }));
   /* banuti pe deasupra apei si peste scanduri */
   for(let x = 260; x < L.len - 200; x += 92){
@@ -1341,6 +1342,10 @@ function hurt(dir){
    se urca acolo si ei se plimba dedesubt ca si cum n-ar fi nimeni. */
 const VEDE = 330, UITA = 560, VEDE_SUS = 260;
 const urmareste = k => k === 'gum' || k === 'bug';
+/* Cine da pupici in loc sa loveasca: TOATE animalutele — omizi, monstri cu
+   mustata, lilieci, meduze, crocodili (cerut de Anabelle, 2026-08-20). Norul cu
+   fulgere din nivelul 4 nu e animal, deci ramane periculos. */
+const daPupici = k => k !== 'storm';
 
 /* Animalutele care merg pe jos: vin dupa ea, sar dupa ea pe rafturi, si nu cad
    in crapaturi — se opresc la margine. Cerut de Anabelle: "sa fie inteligenti,
@@ -1348,20 +1353,10 @@ const urmareste = k => k === 'gum' || k === 'bug';
 function moveUrmaritor(L, m, p){
   const px = m.x + m.w/2, tx = p.x + p.w/2;
 
-  /* sta pe loc cat ii da pupici, apoi o lasa in pace o vreme — fara pauza asta
-     o prinde din nou in cadrul urmator si scena se repeta la nesfarsit */
-  if(m.pupic > 0){
-    m.pupic--;
-    m.vy = Math.min((m.vy || 0) + 0.63, 16);
-    m.y += m.vy;
-    if(m.y + m.h > L.groundY){ m.y = L.groundY - m.h; m.vy = 0; m.onGround = true; }
-    m.pas = 0;
-    if(m.pupic === 0) m.rusine = 210;
-    return;
-  }
-  /* dupa pupici se retrage rusinat, ca sa o lase sa mearga mai departe */
+  /* dupa pupici se retrage rusinat, ca sa o lase sa mearga mai departe.
+     Pupicul insusi si numaratoarea rusinii stau in bucla de monstri, ca sa
+     mearga si pentru lilieci, meduze si crocodili. */
   if(m.rusine > 0){
-    m.rusine--;
     m.dir = tx > px ? -1 : 1;
     const inapoi = m.dir > 0 ? m.x + m.w + 12 : m.x - 12;
     if(solidGround(L, inapoi)) m.x = clamp(m.x + m.dir * m.spd * 0.8, 0, L.len - m.w);
@@ -1456,9 +1451,13 @@ function pupic(m){
      lipiti se pupa la nesfarsit: pauza oprea doar urmarirea, nu si atingerea,
      iar ei nu se miscasera din loc. */
   if(m.pupic > 0 || m.rusine > 0 || p.pupicT > 0) return;
+  const md = LEVELS[levelIdx].mode;
   m.pupic = 104; m.seek = false; m.vy = 0;
-  /* o tinem pe loc doar daca sta pe ceva: inghetata in aer ar arata ca un blocaj */
-  if(p.onGround){ p.pupicT = 52; p.vx = 0; }
+  /* O tinem pe loc doar acolo unde merge singura pe picioarele ei. Pe tobogan
+     si pe placa de surf inainteaza fara sa apese nimic, deci o clipa in care nu
+     raspunde la taste s-ar citi ca blocaj, nu ca pupic — si acolo un blocaj
+     chiar costa, ca vine urmatorul crocodil. */
+  if(p.onGround && md !== 'surf' && md !== 'slide'){ p.pupicT = 52; p.vx = 0; }
   p.mood = 'wow'; p.moodT = 120;
   pops.push({x:m.x + m.w/2, y:m.y - 26, txt:'Îți dau un pupic de nu te vezi!', t:120, col:'#E5566A'});
   for(let i = 0; i < 7; i++)
@@ -1750,6 +1749,28 @@ function step(){
       continue;
     }
     m.t += 0.09;
+
+    /* Pupici: sta pe loc cat ii da, apoi se retrage rusinat. Merge la fel pentru
+       toate felurile de animalute — cele care merg pe jos se retrag activ (in
+       moveUrmaritor), liliecii, meduzele si crocodilii se departeaza oricum
+       plimbandu-se, deci lor le ajunge pauza. */
+    if(m.pupic > 0){
+      m.pupic--;
+      m.seek = false; m.pas = 0;
+      if(m.pupic === 0) m.rusine = 210;
+      if(urmareste(m.kind)){
+        m.vy = Math.min((m.vy || 0) + 0.63, 16);
+        m.y += m.vy;
+        if(m.y + m.h > L.groundY){ m.y = L.groundY - m.h; m.vy = 0; m.onGround = true; }
+      }
+      /* raman legati de valul sau de plutirea lor, altfel par desprinsi din apa */
+      if(m.kind === 'bat')   m.y = m.y0 + Math.sin(m.t * 1.35) * 26;
+      if(m.kind === 'jelly') m.y = m.y0 + Math.sin(m.t * 0.9) * 34;
+      if(m.kind === 'croc')  m.y = waveY(L, m.x + m.w/2) - 22;
+      continue;
+    }
+    if(m.rusine > 0) m.rusine--;
+
     if(urmareste(m.kind)) moveUrmaritor(L, m, p);
     else m.x += m.dir * m.spd;
     if(m.kind === 'bat'){
@@ -1778,7 +1799,7 @@ function step(){
       }else if(m.kind !== 'storm' && m.kind !== 'croc' && p.vy > 1.2 && (p.y + p.h) - m.y < 26){
         m.dead = true; p.vy = -10.2; purse += 2; sfx.stomp();
         pops.push({x:m.x + m.w/2, y:m.y - 6, txt:'+2', t:52, col:'#7B5CD6'});
-      }else if(urmareste(m.kind)){
+      }else if(daPupici(m.kind)){
         pupic(m);
       }else{
         hurt(p.x + p.w/2 < m.x + m.w/2 ? -1 : 1);
@@ -2942,17 +2963,6 @@ function drawGum(m){
   if(m.seek){ g.arc(0, 9, 4.6, 0, 7); g.fillStyle = DANGER; g.fill(); g.stroke(); }
   else{ g.moveTo(-4, 8); g.quadraticCurveTo(0, 11, 4, 8); g.stroke(); }
 
-  /* pupici */
-  if(m.pupic > 0){
-    g.fillStyle = '#F2545B'; g.font = '700 16px Fredoka, sans-serif'; g.textAlign = 'center';
-    for(let i = 0; i < 3; i++){
-      const t = (tick*0.06 + i*2.1) % 3;
-      g.globalAlpha = clamp(1 - t/3, 0, 1);
-      g.fillText('❤', (i-1)*11, -m.h/2 - 12 - t*13);
-    }
-    g.globalAlpha = 1; g.textAlign = 'left';
-  }
-
   /* cand nu poate trece de o crapatura, se enerveaza */
   if(m.blocat && m.seek && Math.floor(tick/16) % 2){
     g.fillStyle = INK; g.font = '700 15px Fredoka, sans-serif';
@@ -2963,7 +2973,24 @@ function drawGum(m){
   g.restore();
 }
 
+/* Inimioarele care ies din animal cat da pupici. Se deseneaza in coordonatele
+   lumii, nu in ale animalului: liliacul si crocodilul se deseneaza oglindit dupa
+   directie, si atunci textul ar iesi scris invers. */
+function pupiciDeasupra(m){
+  if(!(m.pupic > 0)) return;
+  g.save();
+  g.fillStyle = '#F2545B'; g.font = '700 17px Fredoka, sans-serif'; g.textAlign = 'center';
+  const cx = m.x + m.w/2, sus = m.y - 12;
+  for(let i = 0; i < 3; i++){
+    const t = (tick*0.06 + i*2.1) % 3;
+    g.globalAlpha = clamp(1 - t/3, 0, 1);
+    g.fillText('❤', cx + (i-1)*12, sus - t*14);
+  }
+  g.restore();
+}
+
 function drawMonster(m){
+  pupiciDeasupra(m);
   if(m.kind === 'storm') return drawStorm(m);
   if(m.kind === 'gum')   return drawGum(m);
   if(m.kind === 'bat')   return drawBat(m);
@@ -3003,19 +3030,6 @@ function drawMonster(m){
     const ty = -7 + i*6;
     g.beginPath(); g.moveTo(m.w/2 - 4, ty); g.lineTo(m.w/2 + 2, ty + 2.6); g.lineTo(m.w/2 - 4, ty + 5.2);
     g.closePath(); g.fill();
-  }
-
-  /* pupici */
-  if(m.pupic > 0){
-    g.save(); g.scale(m.dir, 1);
-    g.fillStyle = '#F2545B'; g.font = '700 16px Fredoka, sans-serif'; g.textAlign = 'center';
-    for(let i = 0; i < 3; i++){
-      const t = (tick*0.06 + i*2.1) % 3;
-      g.globalAlpha = clamp(1 - t/3, 0, 1);
-      g.fillText('❤', (i-1)*11, -m.h/2 - 22 - t*13);
-    }
-    g.globalAlpha = 1; g.textAlign = 'left';
-    g.restore();
   }
 
   /* ochi + antene — ochii se uita dupa fetita, ca la cei din lumea dulciurilor */
@@ -3408,7 +3422,7 @@ function showIntro(){
       '<span class="key">◀ ▶ mergi</span>' +
       '<span class="key">▲ / Spațiu sari — de două ori, sari mai sus</span>' +
       '<span class="key">🐛 animăluțele fug după tine și sar pe rafturi</span>' +
-      '<span class="key">❤ dacă te prind nu te doare — îți dau pupici și te lasă să pleci</span>' +
+      '<span class="key">❤ animăluțele nu te dor — te prind, îți dau pupici și te lasă</span>' +
       '<span class="key">🍄 ciupercă = SUPER ANABELLE</span>' +
       '<span class="key">X sau F aruncă bile de foc</span>' +
     '</div>' +
@@ -3593,7 +3607,7 @@ function showTurtle(){
     '<h2>„Te-am așteptat, Anabelle.”</h2>' +
     '<p class="lead">Țestoasa magică e mai mare decât tine de trei ori și are pe carapace ' +
     'semne care sclipesc. Îți spune încet:</p>' +
-    '<p class="lead">„Ai fost curajoasă cu liliecii și isteață cu focul. ' +
+    '<p class="lead">„Ai fost isteață cu focul, iar liliecii doar te-au pupat. ' +
     'Ieșirea e chiar după colț — dar nu se coboară pe scări. Se coboară pe ' +
     '<b>toboganul gonflabil fermecat</b>. Ține-te bine — are bucăți lipsă, ' +
     'și pe alea trebuie să sari, altfel cazi în gol!”</p>' +
@@ -3652,7 +3666,8 @@ function showPig(keep){
     '<button class="btn" id="rau" type="button">La râu, pe placa de surf! 🏄</button>' +
     '<p class="tiny">Porcul merge singur. <b>▲</b> sari — de două ori la rând sari mai sus. ' +
     'Aterizează pe bare și alunecă pe ele ca pe un skate, iar dacă pici pe un crocodil ' +
-    'îl bagi la fund. <b>◀</b> frânezi, <b>▶</b> mergi mai iute.</p>'
+    'îl bagi la fund. Crocodilii nu mușcă — te pupă și te lasă să mergi mai departe. ' +
+    '<b>◀</b> frânezi, <b>▶</b> mergi mai iute.</p>'
   );
   paintPreviews(); wireShop();
   document.getElementById('rau').onclick = () => startLevel(8);

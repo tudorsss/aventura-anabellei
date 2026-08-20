@@ -390,7 +390,8 @@ const sfx = {
   win(){ [523,659,784,1047].forEach((f,i)=>beep(f,.16,'triangle',.055,i*.11)); },
   jump2(){ beep(560,.1,'triangle',.05,0); beep(840,.1,'triangle',.04,.06); },
   fire(){ beep(720,.06,'sawtooth',.035,0); beep(420,.09,'sawtooth',.03,.05); },
-  power(){ [392,523,659,784,1047].forEach((f,i)=>beep(f,.13,'square',.05,i*.07)); }
+  power(){ [392,523,659,784,1047].forEach((f,i)=>beep(f,.13,'square',.05,i*.07)); },
+  pupic(){ beep(880,.07,'sine',.05,0); beep(1240,.08,'sine',.045,.07); beep(1560,.13,'sine',.04,.15); }
 };
 
 /* ---------------- garderoba ---------------- */
@@ -963,7 +964,7 @@ function buildLevel(cfg){
     L.monsters.push({
       x:m[0], y:my, y0:my, w:cfg.mw || 62, h:cfg.mh || 32, x1:m[1], x2:m[2],
       dir:1, spd:1.05 + (m[3]||0), dead:false, boo:false, t:Math.random()*6, hue:m[4]||0,
-      vy:0, cool:0, pas:0, onGround:true, seek:false, blocat:false,
+      vy:0, cool:0, pas:0, onGround:true, seek:false, blocat:false, pupic:0, rusine:0,
       kind: cfg.kind || (cfg.mode === 'fly' ? 'storm' : 'bug')
     });
   });
@@ -1217,6 +1218,7 @@ function freshGame(){
     L.monsters.forEach(m => { m.dead = false; m.boo = false; m.sunk = false; m.sinkT = 0;
                               m.seek = false; m.blocat = false;
                               m.vy = 0; m.cool = 0; m.pas = 0; m.onGround = true;
+                              m.pupic = 0; m.rusine = 0;
                               m.x = (m.x1 + m.x2)/2; m.y = m.y0; m.dir = 1; });
   });
   resetPlayer();
@@ -1237,7 +1239,7 @@ function resetPlayer(){
              vx:0, vy:0, onGround:false, face:1, hearts:3,
              invuln:0, walk:0, jumpLock:false,
              jumps:2, superT:0, cool:0,
-             mood:'ok', moodT:0, squashT:0, idleT:0, blinkAt:90,
+             mood:'ok', moodT:0, squashT:0, idleT:0, blinkAt:90, pupicT:0,
              grind:false, grindT:0, falling:false };
 }
 
@@ -1325,7 +1327,7 @@ function hurt(dir){
        altfel o asteapta chiar la intrare si o lovesc din prima. */
     LV.monsters.forEach(m => {
       if(!urmareste(m.kind)) return;
-      m.seek = false; m.vy = 0; m.cool = 0;
+      m.seek = false; m.vy = 0; m.cool = 0; m.pupic = 0; m.rusine = 0;
       m.x = clamp(m.x, m.x1, m.x2 - m.w);
       m.y = m.y0; m.onGround = true;
     });
@@ -1345,7 +1347,34 @@ const urmareste = k => k === 'gum' || k === 'bug';
    sa umble dupa noi" si "sa poata sari dupa tine". */
 function moveUrmaritor(L, m, p){
   const px = m.x + m.w/2, tx = p.x + p.w/2;
-  const vede = Math.abs(tx - px) < (m.seek ? UITA : VEDE) &&
+
+  /* sta pe loc cat ii da pupici, apoi o lasa in pace o vreme — fara pauza asta
+     o prinde din nou in cadrul urmator si scena se repeta la nesfarsit */
+  if(m.pupic > 0){
+    m.pupic--;
+    m.vy = Math.min((m.vy || 0) + 0.63, 16);
+    m.y += m.vy;
+    if(m.y + m.h > L.groundY){ m.y = L.groundY - m.h; m.vy = 0; m.onGround = true; }
+    m.pas = 0;
+    if(m.pupic === 0) m.rusine = 210;
+    return;
+  }
+  /* dupa pupici se retrage rusinat, ca sa o lase sa mearga mai departe */
+  if(m.rusine > 0){
+    m.rusine--;
+    m.dir = tx > px ? -1 : 1;
+    const inapoi = m.dir > 0 ? m.x + m.w + 12 : m.x - 12;
+    if(solidGround(L, inapoi)) m.x = clamp(m.x + m.dir * m.spd * 0.8, 0, L.len - m.w);
+    m.pas = Math.abs(Math.sin(m.t * 1.5)) * 3.5;
+    m.vy = Math.min((m.vy || 0) + 0.63, 16);
+    m.y += m.vy;
+    if(m.y + m.h > L.groundY){ m.y = L.groundY - m.h; m.vy = 0; m.onGround = true; }
+    m.seek = false;
+    return;
+  }
+
+  const vede =
+               Math.abs(tx - px) < (m.seek ? UITA : VEDE) &&
                Math.abs((p.y + p.h) - (m.y + m.h)) < VEDE_SUS;
   if(vede && !m.seek){
     m.seek = true;
@@ -1417,11 +1446,35 @@ function moveUrmaritor(L, m, p){
   m.pas = m.onGround ? Math.abs(Math.sin(m.t * (m.seek ? 2.7 : 1.5))) * (m.seek ? 7 : 3.5) : 0;
 }
 
+/* Anabelle nu vrea ca animalutele sa o omoare. Cand o prind, se opresc, ii dau
+   pupici si o lasa sa mearga mai departe: prinsul costa TIMP, nu inimi. Tepii,
+   crapaturile, liliecii, meduzele si crocodilii raman periculoase — altfel
+   inimile n-ar mai insemna nimic. */
+function pupic(m){
+  const p = player;
+  /* rusine = a dat deja pupici si se retrage. Fara conditia asta, doi care stau
+     lipiti se pupa la nesfarsit: pauza oprea doar urmarirea, nu si atingerea,
+     iar ei nu se miscasera din loc. */
+  if(m.pupic > 0 || m.rusine > 0 || p.pupicT > 0) return;
+  m.pupic = 104; m.seek = false; m.vy = 0;
+  /* o tinem pe loc doar daca sta pe ceva: inghetata in aer ar arata ca un blocaj */
+  if(p.onGround){ p.pupicT = 52; p.vx = 0; }
+  p.mood = 'wow'; p.moodT = 120;
+  pops.push({x:m.x + m.w/2, y:m.y - 26, txt:'Îți dau un pupic de nu te vezi!', t:120, col:'#E5566A'});
+  for(let i = 0; i < 7; i++)
+    pops.push({x:p.x + 2 + i*4, y:p.y + 4 + (i % 3)*7, txt:'❤', t:64 + i*9, col:'#F2545B'});
+  sfx.pupic();
+}
+
 function step(){
   const L = LEVELS[levelIdx], p = player;
-  const left  = keys.arrowleft  || keys.a || touchState.left;
-  const right = keys.arrowright || keys.d || touchState.right;
-  const jump  = keys.arrowup    || keys.w || keys[' '] || touchState.jump;
+  /* cat timp primeste pupici sta pe loc — gravitatia merge mai departe, ca sa
+     nu ramana agatata in aer daca a fost prinsa in saritura */
+  if(p.pupicT > 0) p.pupicT--;
+  const pupicata = p.pupicT > 0;
+  const left  = !pupicata && (keys.arrowleft  || keys.a || touchState.left);
+  const right = !pupicata && (keys.arrowright || keys.d || touchState.right);
+  const jump  = !pupicata && (keys.arrowup    || keys.w || keys[' '] || touchState.jump);
   const fire  = keys.x || keys.f || touchState.fire;
   const down  = keys.arrowdown || keys.s || (L.mode === 'swim' && touchState.fire);
   const flying   = L.mode === 'fly';
@@ -1725,6 +1778,8 @@ function step(){
       }else if(m.kind !== 'storm' && m.kind !== 'croc' && p.vy > 1.2 && (p.y + p.h) - m.y < 26){
         m.dead = true; p.vy = -10.2; purse += 2; sfx.stomp();
         pops.push({x:m.x + m.w/2, y:m.y - 6, txt:'+2', t:52, col:'#7B5CD6'});
+      }else if(urmareste(m.kind)){
+        pupic(m);
       }else{
         hurt(p.x + p.w/2 < m.x + m.w/2 ? -1 : 1);
       }
@@ -2887,6 +2942,17 @@ function drawGum(m){
   if(m.seek){ g.arc(0, 9, 4.6, 0, 7); g.fillStyle = DANGER; g.fill(); g.stroke(); }
   else{ g.moveTo(-4, 8); g.quadraticCurveTo(0, 11, 4, 8); g.stroke(); }
 
+  /* pupici */
+  if(m.pupic > 0){
+    g.fillStyle = '#F2545B'; g.font = '700 16px Fredoka, sans-serif'; g.textAlign = 'center';
+    for(let i = 0; i < 3; i++){
+      const t = (tick*0.06 + i*2.1) % 3;
+      g.globalAlpha = clamp(1 - t/3, 0, 1);
+      g.fillText('❤', (i-1)*11, -m.h/2 - 12 - t*13);
+    }
+    g.globalAlpha = 1; g.textAlign = 'left';
+  }
+
   /* cand nu poate trece de o crapatura, se enerveaza */
   if(m.blocat && m.seek && Math.floor(tick/16) % 2){
     g.fillStyle = INK; g.font = '700 15px Fredoka, sans-serif';
@@ -2937,6 +3003,19 @@ function drawMonster(m){
     const ty = -7 + i*6;
     g.beginPath(); g.moveTo(m.w/2 - 4, ty); g.lineTo(m.w/2 + 2, ty + 2.6); g.lineTo(m.w/2 - 4, ty + 5.2);
     g.closePath(); g.fill();
+  }
+
+  /* pupici */
+  if(m.pupic > 0){
+    g.save(); g.scale(m.dir, 1);
+    g.fillStyle = '#F2545B'; g.font = '700 16px Fredoka, sans-serif'; g.textAlign = 'center';
+    for(let i = 0; i < 3; i++){
+      const t = (tick*0.06 + i*2.1) % 3;
+      g.globalAlpha = clamp(1 - t/3, 0, 1);
+      g.fillText('❤', (i-1)*11, -m.h/2 - 22 - t*13);
+    }
+    g.globalAlpha = 1; g.textAlign = 'left';
+    g.restore();
   }
 
   /* ochi + antene — ochii se uita dupa fetita, ca la cei din lumea dulciurilor */
@@ -3329,6 +3408,7 @@ function showIntro(){
       '<span class="key">◀ ▶ mergi</span>' +
       '<span class="key">▲ / Spațiu sari — de două ori, sari mai sus</span>' +
       '<span class="key">🐛 animăluțele fug după tine și sar pe rafturi</span>' +
+      '<span class="key">❤ dacă te prind nu te doare — îți dau pupici și te lasă să pleci</span>' +
       '<span class="key">🍄 ciupercă = SUPER ANABELLE</span>' +
       '<span class="key">X sau F aruncă bile de foc</span>' +
     '</div>' +
@@ -3417,6 +3497,7 @@ function startLevel(i){
   LEVELS[i].monsters.forEach(m => { m.boo = false; m.sunk = false; m.sinkT = 0; m.y = m.y0;
                                     m.seek = false; m.blocat = false;
                                     m.vy = 0; m.cool = 0; m.pas = 0; m.onGround = true;
+                                    m.pupic = 0; m.rusine = 0;
                                     m.x = (m.x1 + m.x2)/2; m.dir = 1; });
   closePanel(); state = STATE.PLAY;
 }
@@ -3589,12 +3670,15 @@ function showCandy(){
     '<p class="lead">Numai că bomboana de sub picioare a <b>crăpat</b> pe alocuri. ' +
     'Peste crăpături trebuie <b>sărit</b> — dedesubt nu e nimic. Iar prin lume umblă ' +
     'monștri cu <b>mustață din vată de zahăr</b>, și ăștia nu stau proști pe loc: ' +
-    'dacă te văd, vin după tine.</p>' +
+    'dacă te văd, vin după tine. Dar nu-ți fac nimic: dacă te prind, se opresc, ' +
+    'îți dau <b>un pupic de nu te vezi</b> și te lasă să mergi mai departe.</p>' +
     '<p class="lead">La capătul lumii e un raft cu <b>arme din dulce</b>. Îți alegi una — ' +
     'cu ea o să bați monștrii din aventurile care vin.</p>' +
     '<button class="btn" id="dulce" type="button">În lumea dulciurilor! 🍬</button>' +
     '<p class="tiny">Sari de <b>două ori la rând</b> ca să treci crăpăturile late. ' +
     'Monștrii sunt mai lenți decât tine, deci poți fugi de ei — sau le sari în cap. ' +
+    'Pupicii nu te dor, dar te țin pe loc, deci tot merită fugit. ' +
+    'Ai grijă doar la crăpături și la bomboanele ascuțite — alea da, dor. ' +
     'Dacă tot cazi în aceeași crăpătură, apare o punte.</p>'
   );
   document.getElementById('dulce').onclick = () => startLevel(9);

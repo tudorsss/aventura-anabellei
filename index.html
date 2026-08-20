@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Un platformer în nouă niveluri gândit de Anabelle: supermarket, croitorie, salon, vrăjitorul care o face zână, zborul la castelul prințesei, peștera cu lilieci, râul cu țestoasa vorbitoare, toboganul fermecat, pizzeria cu cocoși și râul cu crocodili.">
+<meta name="description" content="Un platformer în zece niveluri gândit de Anabelle: supermarket, croitorie, salon, vrăjitorul care o face zână, zborul la castelul prințesei, peștera cu lilieci, râul cu țestoasa vorbitoare, toboganul fermecat, pizzeria cu cocoși, râul cu crocodili și lumea dulciurilor cu monștri cu mustață de vată.">
 <meta name="theme-color" content="#FDF3E3">
 
 <link rel="manifest" href="manifest.webmanifest">
@@ -418,6 +418,17 @@ const PIGS = [
   { id:'porcCurcubeu', name:'Porc curcubeu', price:30, rainbow:true, b:'#8B6FD6' },
   { id:'porcAuriu',    name:'Porc auriu',    price:45, a:'#FFD447', b:'#E39B12' }
 ];
+/* Armele din dulce — alese la capatul lumii dulciurilor, pentru monstrii
+   din aventurile urmatoare (cerut de Anabelle, 2026-08-20). */
+const ARME = [
+  { id:'acadea', name:'Baghetă-acadea',       price:0,  a:'#F58BB0', b:'#FFF7EC' },
+  { id:'sabie',  name:'Sabie de turtă dulce', price:20, a:'#C6813F', b:'#FFE9C9' },
+  { id:'bici',    name:'Bici de jeleu',        price:25, a:'#E5566A', b:'#FFB0C2' },
+  { id:'prastie', name:'Praștie cu bomboane',  price:30, a:'#8A6242', b:'#5FC98B' },
+  { id:'ciocan',  name:'Ciocan de ciocolată',  price:35, a:'#5E4130', b:'#8E6444' },
+  { id:'gheata',  name:'Sabie de zahăr candel',price:40, a:'#BFE7F5', b:'#FFFFFF' },
+  { id:'arc',     name:'Arc de vată de zahăr', price:50, a:'#8FD3C6', b:'#F5A3B8' }
+];
 const MAKEUPS = [
   { id:'none',     name:'Fără machiaj',   price:0 },
   { id:'obraji',   name:'Obrăjori roz',   price:10 },
@@ -441,6 +452,94 @@ function rr(c,x,y,w,h,r){
   c.closePath();
 }
 function fs(c,fill){ c.fillStyle = fill; c.fill(); c.strokeStyle = INK; c.stroke(); }
+
+/* Arma din dulce, tinuta in mana. Aceleasi coordonate ca torta si pizza. */
+function drawArma(c, id, o){
+  const w = byId(ARME, id);
+  const leg = (o && o.legs) || 0;
+  c.save(); c.translate(15, -30);
+  c.lineWidth = 1.8; c.strokeStyle = INK; c.lineJoin = 'round';
+  if(id === 'sabie'){
+    c.rotate(-0.62);
+    rr(c, -3, -30, 6, 30, 3); c.fillStyle = w.a; c.fill(); c.stroke();      /* lama */
+    rr(c, -8, -2, 16, 5, 2.5); c.fillStyle = '#E39B12'; c.fill(); c.stroke(); /* garda */
+    rr(c, -2.6, 3, 5.2, 11, 2.6); c.fillStyle = '#8A6242'; c.fill(); c.stroke();
+    c.strokeStyle = w.b; c.lineWidth = 1.6;                                 /* glazura */
+    c.beginPath(); c.moveTo(0,-27); c.lineTo(0,-4); c.stroke();
+  }else if(id === 'ciocan'){
+    c.rotate(-0.5);
+    rr(c, -2.6, -16, 5.2, 30, 2.6); c.fillStyle = '#8A6242'; c.fill(); c.stroke();
+    rr(c, -11, -26, 22, 13, 4); c.fillStyle = w.a; c.fill(); c.stroke();
+    rr(c, -8, -24, 16, 4, 2); c.fillStyle = w.b; c.fill();
+  }else if(id === 'gheata'){
+    /* sabie de zahar candel: se vede prin ea si sclipeste */
+    c.rotate(-0.62);
+    c.beginPath();
+    c.moveTo(-3.4, 0); c.lineTo(-2.4, -28); c.lineTo(0, -33); c.lineTo(2.4, -28); c.lineTo(3.4, 0);
+    c.closePath(); c.fillStyle = w.a; c.fill(); c.stroke();
+    c.fillStyle = 'rgba(255,255,255,.85)';
+    c.beginPath(); c.moveTo(-1.2,-27); c.lineTo(0.6,-27); c.lineTo(0.6,-3); c.lineTo(-1.2,-3);
+    c.closePath(); c.fill();
+    rr(c, -8, -2, 16, 5, 2.5); c.fillStyle = '#BFE7DE'; c.fill(); c.stroke();
+    rr(c, -2.6, 3, 5.2, 11, 2.6); c.fillStyle = '#7FA8C9'; c.fill(); c.stroke();
+    c.fillStyle = '#FFF7EC';
+    sparkle(c, 0.5, -22 + Math.sin(leg*2)*4, 3.2);
+  }else if(id === 'bici'){
+    /* bici de jeleu: un lant de bomboane care flutura dupa ea */
+    rr(c, -2.6, -4, 5.2, 15, 2.6); c.fillStyle = '#8A6242'; c.fill(); c.stroke();
+    const und = Math.sin(leg * 1.6);
+    c.strokeStyle = w.a; c.lineWidth = 3.4; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(0, -4);
+    c.quadraticCurveTo(13, -14 - und*4, 24, -6 + und*5);
+    c.quadraticCurveTo(31, -1 + und*7, 34, 6 + und*4);
+    c.stroke(); c.lineCap = 'butt';
+    for(let i = 1; i <= 4; i++){
+      const t = i/4.6, bx = 4 + t*32, by = -6 - und*3 + t*t*16;
+      c.beginPath(); c.arc(bx, by, 3.2, 0, 7);
+      c.fillStyle = i % 2 ? w.b : '#FFD447'; c.fill();
+      c.lineWidth = 1.3; c.strokeStyle = INK; c.stroke();
+    }
+  }else if(id === 'prastie'){
+    /* prastie: furca de lemn, elastic de jeleu, o bomboana in ea */
+    c.rotate(-0.28);
+    c.lineWidth = 3.2; c.strokeStyle = w.a; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(0, 12); c.lineTo(0, -6);
+    c.moveTo(0, -6); c.lineTo(-7, -20);
+    c.moveTo(0, -6); c.lineTo(7, -20);
+    c.stroke();
+    c.strokeStyle = INK; c.lineWidth = 1.2;
+    c.beginPath(); c.moveTo(0, 12); c.lineTo(0, -6);
+    c.moveTo(0, -6); c.lineTo(-7, -20); c.moveTo(0, -6); c.lineTo(7, -20); c.stroke();
+    const trage = 3 + Math.abs(Math.sin(leg)) * 3;
+    c.strokeStyle = '#E5566A'; c.lineWidth = 1.8; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(-7, -20); c.lineTo(0, -12 + trage); c.lineTo(7, -20); c.stroke();
+    c.lineCap = 'butt';
+    c.beginPath(); c.arc(0, -12 + trage, 4, 0, 7);
+    c.fillStyle = w.b; c.fill(); c.lineWidth = 1.4; c.strokeStyle = INK; c.stroke();
+  }else if(id === 'arc'){
+    c.rotate(-0.2);
+    c.strokeStyle = w.b; c.lineWidth = 5;                                   /* vata roz */
+    c.beginPath(); c.arc(-2, -12, 15, -1.15, 1.15); c.stroke();
+    c.strokeStyle = INK; c.lineWidth = 1.4;
+    c.beginPath(); c.arc(-2, -12, 15, -1.15, 1.15); c.stroke();
+    c.strokeStyle = w.a; c.lineWidth = 1.6;                                 /* coarda */
+    c.beginPath(); c.moveTo(4, -25.6); c.lineTo(4, 1.6); c.stroke();
+  }else{
+    /* bagheta-acadea: un baton alb cu o spirala roz in varf */
+    rr(c, -2.2, -14, 4.4, 26, 2.2); c.fillStyle = '#FFF7EC'; c.fill(); c.stroke();
+    c.save(); c.translate(0, -20); c.rotate(leg * 0.5);
+    c.beginPath(); c.arc(0, 0, 9, 0, 7); c.fillStyle = w.b; c.fill(); c.stroke();
+    c.strokeStyle = w.a; c.lineWidth = 2.6; c.lineCap = 'round';
+    c.beginPath();
+    for(let i = 0; i <= 26; i++){
+      const t = i / 26 * 4.4, r = 1 + t * 1.75;
+      i ? c.lineTo(Math.cos(t)*r, Math.sin(t)*r) : c.moveTo(Math.cos(t)*r, Math.sin(t)*r);
+    }
+    c.stroke(); c.lineCap = 'butt';
+    c.restore();
+  }
+  c.restore(); c.lineWidth = 2.2; c.strokeStyle = INK;
+}
 
 /* Deseneaza fetita cu picioarele la (0,0), inaltime ~62.  */
 function drawGirl(c, look, o){
@@ -629,6 +728,9 @@ function drawGirl(c, look, o){
     }
     c.restore(); c.lineWidth = 2.2;
   }
+
+  /* --- arma din dulce --- */
+  if(look.arma) drawArma(c, look.arma, o);
 
   /* --- torța din peșteră --- */
   if(look.torch){
@@ -835,6 +937,7 @@ function buildLevel(cfg){
     bitKind: cfg.bitKind || 'stick', bitsNeeded: cfg.bitsNeeded || 0,
     ovenX: cfg.ovenX, baked: false, roosters: [], roostersNeeded: (cfg.roosters || []).length,
     waterTop: cfg.waterTop, collapseX: cfg.collapseX, collapsed: false,
+    pits: (cfg.pits || []).map(p => ({a:p[0], b:p[1], caderi:0, pod:false})),
     goalX: cfg.goalX, goalLabel: cfg.goalLabel
   };
   cfg.platforms.forEach(p => L.platforms.push({x:p[0], y:p[1], w:p[2], h:20}));
@@ -860,6 +963,7 @@ function buildLevel(cfg){
     L.monsters.push({
       x:m[0], y:my, y0:my, w:cfg.mw || 62, h:cfg.mh || 32, x1:m[1], x2:m[2],
       dir:1, spd:1.05 + (m[3]||0), dead:false, boo:false, t:Math.random()*6, hue:m[4]||0,
+      vy:0, cool:0, pas:0, onGround:true, seek:false, blocat:false,
       kind: cfg.kind || (cfg.mode === 'fly' ? 'storm' : 'bug')
     });
   });
@@ -882,8 +986,23 @@ function buildLevel(cfg){
   });
   /* banuti in arc peste fiecare grup de tepi */
   L.spikes.forEach(s => L.coins.push(...coinArc(s.x + s.w/2, s.y - 46, 5, 62)));
+  /* un arc de banuti peste fiecare crapatura, ca sa se vada pe unde se sare */
+  L.pits.forEach(pt => L.coins.push(
+    ...coinArc((pt.a + pt.b)/2, L.groundY - 116, 5, (pt.b - pt.a) * 0.44)));
   if(cfg.extraCoins) L.coins.push(...cfg.extraCoins);
   return L;
+}
+
+/* Crapaturile din podeaua de bomboana: acolo nu e nimic sub ea si cade in gol.
+   Ca la toboganul cu gauri, dupa a treia cadere in ACEEASI crapatura apare o
+   punte — un obstacol care poate bloca definitiv e mai rau decat unul usor. */
+function pitAt(L, x){
+  for(const p of L.pits) if(x > p.a && x < p.b) return p;
+  return null;
+}
+function solidGround(L, x){
+  const p = pitAt(L, x);
+  return !p || p.pod;
 }
 
 /* Râul: suprafata apei e o unda care se misca, deci si placa urca si coboara. */
@@ -1045,18 +1164,36 @@ const LEVELS = [
     roosters:[[3000,2860,3220],[3860,3720,4080],[4720,4580,4940]]
   }),
   buildSurf({
-    name:'Nivelul 9', sub:'Râul cu crocodili', after:'end', len:5400,
+    name:'Nivelul 9', sub:'Râul cu crocodili', after:'candy', len:5400,
     planks:[[600,248,260],[1160,232,280],[1740,252,260],[2300,228,280],
             [2880,250,260],[3460,230,280],[4040,252,260],[4620,236,280]],
     crocs:[[900,760,1060],[1450,1320,1620],[2050,1900,2200],[2620,2480,2780],
            [3200,3060,3360],[3760,3620,3920],[4340,4200,4500],[4900,4760,5060]]
+  }),
+  /* Nivelul gandit de Anabelle pe 2026-08-20: lumea dulciurilor, cu crapaturi
+     peste care se sare si monstri cu mustata de vata care fug dupa ea.
+     Crapaturile au 120-140 de pasi latime; o saritura dubla duce mai departe
+     de atat, deci fiecare se poate trece si fara punte. */
+  buildLevel({
+    name:'Nivelul 10', sub:'Lumea dulciurilor', theme:'candy', len:5600, goalX:5380,
+    goalLabel:'ARME', after:'arma', kind:'gum', mw:54, mh:40,
+    pits:[[760,890],[1420,1550],[2120,2250],[2760,2900],[3480,3610],[4180,4320],[4860,4990]],
+    platforms:[[380,360,150],[1000,318,170],[1180,382,140],[1640,344,160],[1960,300,150],
+               [2360,368,150],[2560,314,180],[3000,358,160],[3260,306,190],[3720,362,150],
+               [4000,312,160],[4420,366,150],[4620,310,190],[5080,352,160]],
+    spikes:[[520,3],[1240,3],[2400,4],[3140,3],[4060,3],[5060,3]],
+    mushrooms:[1250, 2950, 4400],
+    monsters:[[1100,950,1400,.1,1,430],[1800,1600,2100,.15,2,430],
+              [2500,2300,2740,.1,0,430],[3150,2950,3460,.2,1,430],
+              [3760,3640,4000,.15,2,430],[4050,3900,4160,.1,0,430],
+              [4600,4360,4840,.25,0,430],[5200,5020,5360,.2,1,430]]
   })
 ];
 
 /* ---------------- starea jocului ---------------- */
 const STATE = { INTRO:'intro', PLAY:'play', SHOP:'shop', SALON:'salon', FAIRY:'fairy',
                 CASTLE:'castle', STORY:'story', FIRE:'fire', TURTLE:'turtle',
-                PIZZERIA:'pizzeria', PIG:'pig', LEVELS:'levels', END:'end' };
+                PIZZERIA:'pizzeria', PIG:'pig', ARMA:'arma', LEVELS:'levels', END:'end' };
 
 let state, levelIdx, cam, camY, tick, purse, owned, look, player, pops, shakeT, balls;
 let bitsGot, roostersGot, boos, bubbles;
@@ -1065,9 +1202,10 @@ function freshGame(){
   state    = STATE.INTRO;
   levelIdx = 0;
   purse    = 0;
-  owned    = { rupta:true, ciufulit:true, none:true, transparente:true, porcRoz:true };
+  owned    = { rupta:true, ciufulit:true, none:true, transparente:true, porcRoz:true,
+               acadea:true };
   look     = { outfit:'rupta', hair:'ciufulit', makeup:'none', wings:'transparente',
-               fairy:false, torch:false, pizza:false, pig:'porcRoz' };
+               fairy:false, torch:false, pizza:false, pig:'porcRoz', arma:null };
   LEVELS.forEach(L => {
     L.coins.forEach(c => c.got = false);
     L.mushrooms.forEach(m => m.got = false);
@@ -1075,7 +1213,10 @@ function freshGame(){
     L.roosters.forEach(r => { r.follow = false; r.x = (r.x1 + r.x2)/2; });
     L.collapsed = false; L.baked = false;
     (L.gaps || []).forEach(g => { g.caderi = 0; g.pod = false; });
+    (L.pits || []).forEach(p => { p.caderi = 0; p.pod = false; });
     L.monsters.forEach(m => { m.dead = false; m.boo = false; m.sunk = false; m.sinkT = 0;
+                              m.seek = false; m.blocat = false;
+                              m.vy = 0; m.cool = 0; m.pas = 0; m.onGround = true;
                               m.x = (m.x1 + m.x2)/2; m.y = m.y0; m.dir = 1; });
   });
   resetPlayer();
@@ -1178,10 +1319,102 @@ function hurt(dir){
     }else{
       player.x = 60; player.y = LV.groundY - 54;
     }
-    player.vx = 0; player.vy = 0;
+    player.vx = 0; player.vy = 0; player.falling = false;
     player.hearts = 3; player.invuln = 70;
+    /* monstrii care fugeau dupa ea o pierd din ochi si se intorc acasa —
+       altfel o asteapta chiar la intrare si o lovesc din prima. */
+    LV.monsters.forEach(m => {
+      if(!urmareste(m.kind)) return;
+      m.seek = false; m.vy = 0; m.cool = 0;
+      m.x = clamp(m.x, m.x1, m.x2 - m.w);
+      m.y = m.y0; m.onGround = true;
+    });
     pops.push({x:player.x+14, y:player.y, txt:'Hai din nou!', t:90, col:'#7B5CD6'});
   }
+}
+
+/* Cat de departe o vede si de la cat o pierde din nou. Doua praguri diferite,
+   altfel se aprinde si se stinge la fiecare pas cand sta exact pe margine.
+   Pe verticala e larg (260) ca sa o vada si cand s-a urcat pe un raft — altfel
+   se urca acolo si ei se plimba dedesubt ca si cum n-ar fi nimeni. */
+const VEDE = 330, UITA = 560, VEDE_SUS = 260;
+const urmareste = k => k === 'gum' || k === 'bug';
+
+/* Animalutele care merg pe jos: vin dupa ea, sar dupa ea pe rafturi, si nu cad
+   in crapaturi — se opresc la margine. Cerut de Anabelle: "sa fie inteligenti,
+   sa umble dupa noi" si "sa poata sari dupa tine". */
+function moveUrmaritor(L, m, p){
+  const px = m.x + m.w/2, tx = p.x + p.w/2;
+  const vede = Math.abs(tx - px) < (m.seek ? UITA : VEDE) &&
+               Math.abs((p.y + p.h) - (m.y + m.h)) < VEDE_SUS;
+  if(vede && !m.seek){
+    m.seek = true;
+    pops.push({x:px, y:m.y - 14, txt:'Te-am văzut!', t:70, col:'#E5566A'});
+    beep(210, .12, 'square', .03, 0);
+  }
+  if(!vede) m.seek = false;
+
+  /* tinta: fetita cand o vede, altfel marginea zonei lui daca a iesit din ea */
+  let tinta = null;
+  if(m.seek)              tinta = tx;
+  else if(px < m.x1 + 20) tinta = m.x1 + 40;
+  else if(px > m.x2 - 20) tinta = m.x2 - 40;
+
+  if(tinta !== null) m.dir = tinta > px ? 1 : -1;
+  else{
+    if(m.x < m.x1){ m.x = m.x1; m.dir = 1; }
+    if(m.x + m.w > m.x2){ m.x = m.x2 - m.w; m.dir = -1; }
+  }
+
+  /* Marginea crapaturii il opreste si in aer, nu doar pe jos: daca l-am opri
+     doar cand calca, ar putea sari peste crapatura — si atunci se pierde
+     singurul loc din nivel unde fetita e in siguranta. */
+  const inainte = m.dir > 0 ? m.x + m.w + 12 : m.x - 12;
+  m.blocat = !solidGround(L, inainte);
+  const ajuns = tinta !== null && Math.abs(tinta - px) < 10;
+  /* Cat de repede vine dupa ea. Plafonul e regula, nu graba: fetita merge cu
+     4.6, deci orice urmaritor trebuie sa ramana sub jumatate, ca sa poata fi
+     fugarit in ORICE nivel. Fara plafon, padurea (unde animalutele erau facute
+     cele mai iuti) devenea de netrecut — masurat, 13 morti si zero progres. */
+  const viteza = m.seek ? Math.min(m.spd * 1.75, 2.35) : m.spd;
+  if(!m.blocat && !ajuns) m.x += m.dir * viteza;
+  m.x = clamp(m.x, 0, L.len - m.w);
+
+  /* saritura: doar cand o urmareste, cand ea e mai sus si e destul de aproape */
+  if(m.cool > 0) m.cool--;
+  /* Sare doar dupa o fetita care STA pe ceva mai sus — nu dupa una care e in
+     aer. Daca sare si dupa cea din aer, ii vine in intampinare exact cand ea
+     sare peste el, si atunci nu-i mai poate sari in cap: aterizarea devine o
+     lovitura. Masurat in padure: 39 de loviri si 13 morti intr-un nivel pe care
+     acelasi bot il trecea fara nicio zgarietura. Inaltimea (~188) e cat sa
+     ajunga pe cel mai inalt raft din joc, ca sa nu ramana niciun loc unde ea e
+     in siguranta la nesfarsit — asta a cerut Anabelle. */
+  if(m.onGround && m.seek && m.cool === 0 && p.onGround){
+    const eaEMaiSus = (m.y + m.h) - (p.y + p.h) > 30;
+    const aproape   = Math.abs(tx - px) < 170;
+    if(eaEMaiSus && aproape){
+      m.vy = -15.4; m.onGround = false; m.cool = 45;
+      beep(330, .08, 'triangle', .025, 0);
+    }
+  }
+
+  /* cade ca ea: pe podea sau pe rafturi */
+  m.vy = Math.min((m.vy || 0) + 0.63, 16);
+  const josInainte = m.y + m.h;
+  m.y += m.vy;
+  m.onGround = false;
+  if(m.y + m.h > L.groundY){ m.y = L.groundY - m.h; m.vy = 0; m.onGround = true; }
+  if(m.vy > 0){
+    for(const pl of L.platforms){
+      if(josInainte <= pl.y + 2 && m.y + m.h >= pl.y &&
+         m.x + m.w > pl.x + 4 && m.x < pl.x + pl.w - 4){
+        m.y = pl.y - m.h; m.vy = 0; m.onGround = true; break;
+      }
+    }
+  }
+  /* legananul din mers e doar la desen, ca sa nu se miste si locul unde poate
+     fi lovit odata cu el */
+  m.pas = m.onGround ? Math.abs(Math.sin(m.t * (m.seek ? 2.7 : 1.5))) * (m.seek ? 7 : 3.5) : 0;
 }
 
 function step(){
@@ -1333,15 +1566,53 @@ function step(){
     const prevBottom = p.y + p.h;
     p.y += p.vy;
     p.onGround = false;
-    if(p.y + p.h > L.groundY){ p.y = L.groundY - p.h; p.vy = 0; p.onGround = true; }
-    if(p.vy > 0){
-      for(const pl of L.platforms){
-        if(prevBottom <= pl.y + 2 && p.y + p.h >= pl.y && p.x + p.w > pl.x + 3 && p.x < pl.x + pl.w - 3){
-          p.y = pl.y - p.h; p.vy = 0; p.onGround = true; break;
+    /* Odata intrata in crapatura, e cazuta: nu se mai prinde de marginea de
+       dincolo. Fara asta o crapatura ingusta nu prinde pe nimeni — masurat:
+       la 130 de pasi latime ii trebuie 28 de cadre ca sa o traverseze si doar
+       24 ca sa cada sub ecran, deci la viteza maxima trecea pe deasupra ei si
+       ateriza linistita dincolo. Aceeasi capcana ca la gaurile din tobogan. */
+    if(!solidGround(L, p.x + p.w/2) && p.y + p.h > L.groundY + 6) p.falling = true;
+    if(!p.falling){
+      if(p.y + p.h > L.groundY && solidGround(L, p.x + p.w/2)){
+        p.y = L.groundY - p.h; p.vy = 0; p.onGround = true;
+      }
+      if(p.vy > 0){
+        for(const pl of L.platforms){
+          if(prevBottom <= pl.y + 2 && p.y + p.h >= pl.y && p.x + p.w > pl.x + 3 && p.x < pl.x + pl.w - 3){
+            p.y = pl.y - p.h; p.vy = 0; p.onGround = true; break;
+          }
         }
       }
     }
     if(p.onGround) p.jumps = 2;
+
+    /* a cazut intr-o crapatura: o inima, apoi inapoi pe marginea dinainte */
+    if(L.pits.length && p.y > H + 60){
+      let vinovata = null;
+      for(const pt of L.pits)
+        if(p.x + p.w/2 > pt.a && (!vinovata || pt.a > vinovata.a)) vinovata = pt;
+      if(vinovata){
+        vinovata.caderi++;
+        if(vinovata.caderi >= 3 && !vinovata.pod){
+          vinovata.pod = true;
+          pops.push({x:(vinovata.a + vinovata.b)/2, y:L.groundY - 96,
+                     txt:'A apărut o punte! 🌈', t:150, col:'#8B6FD6'});
+          sfx.power();
+        }
+      }
+      /* O punem inapoi NOI, mereu. Nu ne bazam pe hurt() sa o mute: cat timp
+         e inca invulnerabila de la lovitura dinainte, hurt() iese din prima
+         linie si nu face nimic — si atunci ramanea in cadere libera, numarand
+         cate o cadere pe cadru pana trecea de crapatura si ateriza dincolo. */
+      const inimiInainte = p.hearts;
+      hurt(0);
+      const arepornit = p.hearts > inimiInainte;   /* a ramas fara inimi */
+      p.falling = false; p.vx = 0; p.vy = 0;
+      p.x = (arepornit || !vinovata) ? 60 : Math.max(40, vinovata.a - 96);
+      p.y = L.groundY - p.h; p.onGround = true;
+      if(!arepornit && (!vinovata || !vinovata.pod))
+        pops.push({x:p.x + 14, y:p.y - 24, txt:'Hopa! Sari peste crăpătură', t:100, col:'#7B5CD6'});
+    }
   }
   p.walk += p.onGround ? Math.abs(p.vx) * 0.19 : 0.06;
   if(p.invuln > 0) p.invuln--;
@@ -1411,6 +1682,9 @@ function step(){
   }
 
   /* --- monstruleti --- */
+  /* Animalutele NU se plimba prosteste: cat timp o vad, vin dupa ea si sar dupa
+     ea pe rafturi. Sunt insa mai lente decat ea (cel mult 2.6 fata de 4.6), ca
+     sa poata fi fugarite, si nu cad in crapaturi — se opresc la margine. */
   for(const m of L.monsters){
     if(m.dead) continue;
     /* crocodilul scufundat coboara si iese din joc — nu mai musca pe drum */
@@ -1423,7 +1697,8 @@ function step(){
       continue;
     }
     m.t += 0.09;
-    m.x += m.dir * m.spd;
+    if(urmareste(m.kind)) moveUrmaritor(L, m, p);
+    else m.x += m.dir * m.spd;
     if(m.kind === 'bat'){
       m.y = m.y0 + Math.sin(m.t * 1.35) * 26;
       if(!m.boo && Math.abs((p.x + p.w/2) - (m.x + m.w/2)) < 240){
@@ -1436,8 +1711,10 @@ function step(){
     }
     if(m.kind === 'jelly') m.y = m.y0 + Math.sin(m.t * 0.9) * 34;
     if(m.kind === 'croc')  m.y = waveY(L, m.x + m.w/2) - 22;
-    if(m.x < m.x1){ m.x = m.x1; m.dir = 1; }
-    if(m.x + m.w > m.x2){ m.x = m.x2 - m.w; m.dir = -1; }
+    if(!urmareste(m.kind)){
+      if(m.x < m.x1){ m.x = m.x1; m.dir = 1; }
+      if(m.x + m.w > m.x2){ m.x = m.x2 - m.w; m.dir = -1; }
+    }
     if(hit(p, m)){
       if(m.kind === 'croc' && p.vy > 1.2 && (p.y + p.h) - m.y < 44){
         /* aterizeaza pe el cu placa si il baga la fund */
@@ -1535,6 +1812,8 @@ function step(){
     if(L.after === 'shop')        showShop();
     else if(L.after === 'pizzeria') showPizzeria();
     else if(L.after === 'pig')      showPig();
+    else if(L.after === 'candy')    showCandy();
+    else if(L.after === 'arma')     showArma();
     else if(L.after === 'salon')  showSalon();
     else if(L.after === 'fairy')  showFairy();
     else if(L.after === 'castle') showCastle();
@@ -2297,8 +2576,118 @@ function drawDark(L){
   }
 }
 
+/* Lumea dulciurilor: cer roz, nori de vata, acadele cat casa si o podea de
+   bomboana crapata pe alocuri. Podeaua se deseneaza in coordonatele lumii,
+   ca sa se poata rupe exact acolo unde sunt crapaturile. */
+function drawCandy(L){
+  const sky = g.createLinearGradient(0, 0, 0, L.groundY);
+  sky.addColorStop(0, '#FFE6F2'); sky.addColorStop(1, '#FFC9DF');
+  g.fillStyle = sky; g.fillRect(0, 0, W, L.groundY);
+
+  /* nori de vata de zahar */
+  for(let i = -1; i < 8; i++){
+    const x = i*250 - ((cam*0.22) % 250);
+    g.fillStyle = i % 2 ? 'rgba(255,255,255,.8)' : 'rgba(255,214,232,.85)';
+    puff(g, x + 60, 62 + ((i*53) % 46), 32);
+  }
+
+  /* acadele mari, in departare */
+  const far = cam * 0.42;
+  for(let i = -1; i < 12; i++){
+    const x = i*310 - (far % 310);
+    g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 11; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(x + 96, L.groundY); g.lineTo(x + 96, 246); g.stroke();
+    g.save(); g.translate(x + 96, 208); g.rotate(tick * 0.004 + i);
+    for(let k = 0; k < 6; k++){
+      g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 42, k*Math.PI/3, (k+1)*Math.PI/3); g.closePath();
+      g.fillStyle = k % 2 ? 'rgba(245,139,176,.8)' : 'rgba(255,255,255,.9)';
+      g.fill();
+    }
+    g.restore();
+    g.beginPath(); g.arc(x + 96, 208, 42, 0, 7);
+    g.lineWidth = 3; g.strokeStyle = 'rgba(46,36,56,.3)'; g.stroke();
+  }
+  g.lineCap = 'butt';
+
+  /* jeleuri langa drum */
+  const near = cam * 0.72;
+  for(let i = -1; i < 16; i++){
+    const x = i*225 - (near % 225);
+    g.fillStyle = ['rgba(122,201,139,.5)','rgba(255,201,60,.5)','rgba(139,111,214,.42)'][((i%3)+3)%3];
+    g.beginPath(); g.moveTo(x, L.groundY);
+    g.quadraticCurveTo(x - 4, L.groundY - 58, x + 26, L.groundY - 58);
+    g.quadraticCurveTo(x + 56, L.groundY - 58, x + 52, L.groundY);
+    g.closePath(); g.fill();
+  }
+
+  /* --- podeaua, in coordonatele lumii --- */
+  g.save(); g.translate(-cam, 0);
+  const x0 = cam - 90, x1 = cam + W + 90;
+
+  /* intunericul de sub lumea dulciurilor — se vede prin crapaturi */
+  g.fillStyle = '#3B2A4C'; g.fillRect(x0, L.groundY, x1 - x0, H - L.groundY);
+  g.fillStyle = 'rgba(255,255,255,.16)';
+  for(let x = Math.floor(x0/37)*37; x < x1; x += 37)
+    g.fillRect(x, L.groundY + 26 + ((x*13) % 70), 3, 8);
+
+  /* feliile de podea dintre crapaturi */
+  const margini = [x0];
+  for(const pt of L.pits)
+    if(pt.b > x0 && pt.a < x1 && !pt.pod) margini.push(pt.a, pt.b);
+  margini.push(x1);
+  for(let i = 0; i + 1 < margini.length; i += 2){
+    const a = margini[i], b = margini[i+1];
+    if(b <= a) continue;
+    g.fillStyle = '#FFF0F6'; g.fillRect(a, L.groundY, b - a, H - L.groundY);
+    g.fillStyle = 'rgba(245,163,184,.75)';
+    const tile = 56;
+    for(let x = Math.floor(a/tile)*tile; x < b; x += tile){
+      const xa = Math.max(a, x), xb = Math.min(b, x + tile*0.5);
+      if(xb > xa) g.fillRect(xa, L.groundY, xb - xa, H - L.groundY);
+    }
+    g.fillStyle = INK; g.fillRect(a, L.groundY - 4, b - a, 4);
+  }
+
+  /* marginile rupte, puntea, si semnul de atentie deasupra fiecarei crapaturi */
+  for(const pt of L.pits){
+    if(pt.b < x0 || pt.a > x1) continue;
+    if(pt.pod){
+      const cols = ['#F2545B','#FFB020','#FFD447','#5FC98B','#4FB3D9','#8B6FD6'];
+      for(let k = 0; k < 6; k++){
+        g.fillStyle = cols[k];
+        g.fillRect(pt.a - 10, L.groundY - 4 + k*4, (pt.b - pt.a) + 20, 4);
+      }
+      rr(g, pt.a - 10, L.groundY - 5, (pt.b - pt.a) + 20, 26, 5);
+      g.lineWidth = 2.6; g.strokeStyle = INK; g.stroke();
+      continue;
+    }
+    for(const [ex, dir] of [[pt.a, -1], [pt.b, 1]]){
+      g.save(); g.translate(ex, L.groundY);
+      g.beginPath();
+      g.moveTo(0, -2); g.lineTo(-dir*7, 8); g.lineTo(0, 15);
+      g.lineTo(-dir*8, 24); g.lineTo(0, 32); g.lineTo(dir*3, 32); g.lineTo(dir*3, -2);
+      g.closePath();
+      g.fillStyle = '#FFF0F6'; g.fill();
+      g.lineWidth = 2.4; g.strokeStyle = INK; g.stroke();
+      g.restore();
+    }
+    const mx = (pt.a + pt.b)/2;
+    g.save(); g.translate(mx, L.groundY - 158 + Math.sin(tick*0.07)*4);
+    g.beginPath(); g.moveTo(0,-13); g.lineTo(13,10); g.lineTo(-13,10); g.closePath();
+    g.fillStyle = '#FFC93C'; g.fill();
+    g.lineWidth = 2.4; g.strokeStyle = INK; g.stroke();
+    g.fillStyle = INK; g.font = '700 13px Fredoka, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('!', 0, 3);
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    g.restore();
+  }
+  g.restore();
+}
+
 function drawBackdrop(L){
   if(L.theme === 'sky')    return drawSky(L);
+  if(L.theme === 'candy')  return drawCandy(L);
   if(L.theme === 'forest') return drawForest(L);
   if(L.theme === 'cave')   return drawCave(L);
   if(L.theme === 'water')  return drawWater(L);
@@ -2436,14 +2825,87 @@ function drawStorm(m){
   g.restore();
 }
 
+/* Monstrul-jeleu cu mustata din vata de zahar. Ochii se uita dupa fetita,
+   iar cand fuge dupa ea i se incrunta sprancenele si i se zbarleste mustata. */
+function drawGum(m){
+  const pal = [['#E5566A','#FF9DB2'], ['#7B5CD6','#B49AF0'], ['#3BB6A6','#8CE0D3']][m.hue % 3];
+  const wob = Math.sin(m.t * 2) * 1.4 - (m.pas || 0);
+  g.save(); g.translate(m.x + m.w/2, m.y + m.h/2 + wob);
+  g.lineWidth = 2.6; g.strokeStyle = INK; g.lineJoin = 'round';
+
+  /* picioruse de bomboana */
+  g.fillStyle = pal[0];
+  for(const px of [-15, 8]){
+    const ph = 5 + Math.abs(Math.sin(m.t*(m.seek ? 3.4 : 1.8) + (px < 0 ? 0 : 1.6))) * 6;
+    rr(g, px, m.h/2 - 5, 7, ph, 3); g.fill(); g.stroke();
+  }
+
+  /* corpul de jeleu */
+  g.beginPath();
+  g.moveTo(-m.w/2 + 4, m.h/2 - 3);
+  g.quadraticCurveTo(-m.w/2 + 2, -m.h/2 - 8, 0, -m.h/2 - 8);
+  g.quadraticCurveTo(m.w/2 - 2, -m.h/2 - 8, m.w/2 - 4, m.h/2 - 3);
+  g.closePath();
+  const gr = g.createLinearGradient(0, -m.h/2, 0, m.h/2);
+  gr.addColorStop(0, pal[1]); gr.addColorStop(1, pal[0]);
+  g.fillStyle = gr; g.fill(); g.stroke();
+
+  /* zahar tos pe jeleu */
+  g.fillStyle = 'rgba(255,255,255,.55)';
+  for(let i = 0; i < 7; i++)
+    g.fillRect(-m.w/2 + 8 + ((i*13) % (m.w - 16)), -m.h/2 + 2 + ((i*17) % (m.h - 6)), 3, 3);
+
+  /* ochii se uita dupa fetita */
+  const catre = clamp(((player.x + player.w/2) - (m.x + m.w/2)) / 190, -1, 1);
+  for(const ex of [-9, 9]){
+    g.beginPath(); g.arc(ex, -11, 6.6, 0, 7);
+    g.fillStyle = '#FFF7EC'; g.fill(); g.lineWidth = 2.2; g.stroke();
+    g.beginPath(); g.arc(ex + catre*2.8, -11, 2.7, 0, 7); g.fillStyle = INK; g.fill();
+  }
+  if(m.seek){
+    g.lineWidth = 2.6; g.strokeStyle = INK;
+    for(const sx of [-1, 1]){
+      g.beginPath();
+      g.moveTo(sx*4, -20); g.lineTo(sx*14, -16.5); g.stroke();
+    }
+  }
+
+  /* MUSTATA din vata de zahar */
+  const zbarlit = m.seek ? 1.6 : 0;
+  for(const sx of [-1, 1]){
+    for(const [ox, oy, r] of [[6,0,6.6],[13,-1.4,5.8],[19,0.6,4.6]]){
+      g.beginPath();
+      g.arc(sx*ox, 2 + oy - Math.sin(m.t*3 + ox)*(0.8 + zbarlit), r, 0, 7);
+      g.fillStyle = '#FFC7DC'; g.fill();
+      g.lineWidth = 1.4; g.strokeStyle = 'rgba(46,36,56,.4)'; g.stroke();
+    }
+  }
+  g.lineWidth = 2.2; g.strokeStyle = INK;
+
+  /* gurita, sub mustata */
+  g.beginPath();
+  if(m.seek){ g.arc(0, 9, 4.6, 0, 7); g.fillStyle = DANGER; g.fill(); g.stroke(); }
+  else{ g.moveTo(-4, 8); g.quadraticCurveTo(0, 11, 4, 8); g.stroke(); }
+
+  /* cand nu poate trece de o crapatura, se enerveaza */
+  if(m.blocat && m.seek && Math.floor(tick/16) % 2){
+    g.fillStyle = INK; g.font = '700 15px Fredoka, sans-serif';
+    g.textAlign = 'center';
+    g.fillText('grr!', 0, -m.h/2 - 14);
+    g.textAlign = 'left';
+  }
+  g.restore();
+}
+
 function drawMonster(m){
   if(m.kind === 'storm') return drawStorm(m);
+  if(m.kind === 'gum')   return drawGum(m);
   if(m.kind === 'bat')   return drawBat(m);
   if(m.kind === 'jelly') return drawJelly(m);
   if(m.kind === 'croc')  return drawCroc(m);
   const palettes = [['#7B5CD6','#B49AF0'], ['#3BB6A6','#8CE0D3'], ['#F2884B','#FFC08A']];
   const pal = palettes[m.hue % 3];
-  const wob = Math.sin(m.t) * 2.4;
+  const wob = Math.sin(m.t) * 2.4 - (m.pas || 0);
   g.save(); g.translate(m.x + m.w/2, m.y + m.h/2 + wob);
   g.scale(m.dir, 1);
   g.lineWidth = 2.4; g.strokeStyle = INK; g.lineJoin = 'round';
@@ -2477,13 +2939,18 @@ function drawMonster(m){
     g.closePath(); g.fill();
   }
 
-  /* ochi + antene */
+  /* ochi + antene — ochii se uita dupa fetita, ca la cei din lumea dulciurilor */
+  const catre = clamp(((player.x + player.w/2) - (m.x + m.w/2)) * m.dir / 190, -1, 1);
   for(const ex of [-8, 6]){
     g.strokeStyle = INK; g.lineWidth = 2;
     g.beginPath(); g.moveTo(ex + 3, -m.h/2 + 2); g.lineTo(ex + 5, -m.h/2 - 10); g.stroke();
     g.beginPath(); g.arc(ex + 5, -m.h/2 - 13, 4.5, 0, 7);
     g.fillStyle = '#FFF7EC'; g.fill(); g.lineWidth = 2.2; g.stroke();
-    g.beginPath(); g.arc(ex + 6.2, -m.h/2 - 13, 1.9, 0, 7); g.fillStyle = INK; g.fill();
+    g.beginPath(); g.arc(ex + 5 + catre*1.8, -m.h/2 - 13, 1.9, 0, 7); g.fillStyle = INK; g.fill();
+    if(m.seek){
+      g.strokeStyle = INK; g.lineWidth = 2.4;
+      g.beginPath(); g.moveTo(ex + 1, -m.h/2 - 19); g.lineTo(ex + 9, -m.h/2 - 16.5); g.stroke();
+    }
   }
   g.restore();
 }
@@ -2715,7 +3182,8 @@ function render(){
     rr(g, pl.x, pl.y, pl.w, pl.h, 7);
     g.fillStyle = L.theme === 'market' ? '#F7E4CC' : L.theme === 'forest' ? '#E9F5DA'
                 : L.theme === 'cave'   ? '#6A5A8E' : L.theme === 'river' ? '#C79A63'
-                : L.theme === 'pizza'  ? '#F3D9B8' : '#FFF0F6'; g.fill();
+                : L.theme === 'pizza'  ? '#F3D9B8' : L.theme === 'candy' ? '#FFE3EF'
+                : '#FFF0F6'; g.fill();
     g.lineWidth = 2.6; g.strokeStyle = INK; g.stroke();
     rr(g, pl.x + 6, pl.y + pl.h, pl.w - 12, 10, 4);
     g.fillStyle = 'rgba(46,36,56,.18)'; g.fill();
@@ -2795,7 +3263,7 @@ function render(){
 }
 
 /* ---------------- alegerea nivelului ---------------- */
-const LEVEL_EMOJI = ['🛒','🛍️','🌲','☁️','🦇','🐢','🛝','🍕','🐊'];
+const LEVEL_EMOJI = ['🛒','🛍️','🌲','☁️','🦇','🐢','🛝','🍕','🐊','🍭'];
 
 /* Cand sari direct la un nivel, ii dam ce ar fi trebuit sa aiba pana acolo:
    aripi de la vrajitor, torta de la foc, porcul de la cocosi. */
@@ -2803,7 +3271,8 @@ function setupLookFor(i){
   look.fairy = i >= 3;
   look.torch = i >= 5 && i <= 8;
   look.pizza = false;
-  if(i === 8 && !owned[look.pig]) look.pig = 'porcRoz';
+  look.arma  = null;   /* arma se ia abia la capatul lumii dulciurilor */
+  if(i >= 8 && !owned[look.pig]) look.pig = 'porcRoz';
 }
 
 function showLevels(fromIntro){
@@ -2855,10 +3324,11 @@ function showIntro(){
   openPanel(
     '<p class="eyebrow">Un joc gândit de Anabelle</p>' +
     '<h1>Aventura Anabellei</h1>' +
-    '<p class="lead">Nouă niveluri: strânge bănuți prin <b>supermarket</b> și cumpără-ți hăinuțe la croitorie, treci prin <b>galerie</b> până la salon, taie <b>pădurea</b> până la vrăjitor — el te face zână — <b>zboară prin nori</b> la castelul prințesei, intră în <b>peștera</b> cu lilieci, fă un foc, <b>înoată</b> până la țestoasa vorbitoare, alunecă pe <b>toboganul fermecat</b> drept într-o <b>pizzerie</b>, fă o pizza ca să momești cocoșii, ia-ți un <b>porc</b> și coboară <b>râul</b> pe placa de surf, sărind peste crocodili.</p>' +
+    '<p class="lead">Zece niveluri: strânge bănuți prin <b>supermarket</b> și cumpără-ți hăinuțe la croitorie, treci prin <b>galerie</b> până la salon, taie <b>pădurea</b> până la vrăjitor — el te face zână — <b>zboară prin nori</b> la castelul prințesei, intră în <b>peștera</b> cu lilieci, fă un foc, <b>înoată</b> până la țestoasa vorbitoare, alunecă pe <b>toboganul fermecat</b> drept într-o <b>pizzerie</b>, fă o pizza ca să momești cocoșii, ia-ți un <b>porc</b> și coboară <b>râul</b> pe placa de surf, sărind peste crocodili, apoi intră în <b>lumea dulciurilor</b>: sari peste crăpăturile de bomboană, fugi de monștrii cu mustață de vată de zahăr și alege-ți o <b>armă din dulce</b> pentru aventurile care vin.</p>' +
     '<div class="keys">' +
       '<span class="key">◀ ▶ mergi</span>' +
       '<span class="key">▲ / Spațiu sari — de două ori, sari mai sus</span>' +
+      '<span class="key">🐛 animăluțele fug după tine și sar pe rafturi</span>' +
       '<span class="key">🍄 ciupercă = SUPER ANABELLE</span>' +
       '<span class="key">X sau F aruncă bile de foc</span>' +
     '</div>' +
@@ -2874,7 +3344,7 @@ function itemCard(item, kind){
   const has    = !!owned[item.id];
   const afford = has || purse >= item.price;
   const st     = worn ? 'worn' : (afford ? 'ok' : 'locked');
-  const label  = worn ? (kind === 'pig' ? 'Ales' : 'Purtată') : (has ? 'Ai deja' : item.price + ' <svg class="coin-ico" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.4" fill="#FFC93C" stroke="#2E2438" stroke-width="2"/><circle cx="10" cy="10" r="3.9" fill="none" stroke="#E39B12" stroke-width="1.8"/></svg>');
+  const label  = worn ? (kind === 'pig' ? 'Ales' : kind === 'arma' ? 'Aleasă' : 'Purtată') : (has ? 'Ai deja' : item.price + ' <svg class="coin-ico" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.4" fill="#FFC93C" stroke="#2E2438" stroke-width="2"/><circle cx="10" cy="10" r="3.9" fill="none" stroke="#E39B12" stroke-width="1.8"/></svg>');
   return '<button class="item" type="button" data-state="' + st + '" data-kind="' + kind + '" data-id="' + item.id + '"' +
          (st === 'locked' ? ' disabled' : '') + '>' +
          '<canvas width="130" height="160" data-prev="' + kind + ':' + item.id + '"></canvas>' +
@@ -2886,7 +3356,7 @@ function paintPreviews(){
   card.querySelectorAll('canvas[data-prev]').forEach(el => {
     const parts = el.getAttribute('data-prev').split(':');
     const prev = { outfit:look.outfit, hair:look.hair, makeup:look.makeup,
-                   wings:look.wings, fairy:look.fairy };
+                   wings:look.wings, fairy:look.fairy, arma:look.arma };
     prev[parts[0]] = parts[1];
     if(parts[0] === 'wings') prev.fairy = true;
     const c = el.getContext('2d');
@@ -2903,7 +3373,8 @@ function wireShop(){
     el.onclick = () => {
       const kind = el.getAttribute('data-kind'), id = el.getAttribute('data-id');
       const list = kind === 'outfit' ? OUTFITS : kind === 'hair' ? HAIRS
-                 : kind === 'wings'  ? WINGS   : kind === 'pig' ? PIGS : MAKEUPS;
+                 : kind === 'wings'  ? WINGS   : kind === 'pig' ? PIGS
+                 : kind === 'arma'   ? ARME    : MAKEUPS;
       const item = byId(list, id);
       if(!owned[id]){
         if(purse < item.price) return;
@@ -2913,6 +3384,7 @@ function wireShop(){
       if(state === STATE.SHOP)       showShop(true);
       else if(state === STATE.FAIRY) showFairy(true);
       else if(state === STATE.PIG)   showPig(true);
+      else if(state === STATE.ARMA)  showArma(true);
       else                           showSalon(true);
     };
   });
@@ -2939,9 +3411,13 @@ function startLevel(i){
   bitsGot = 0; roostersGot = 0; boos = 0;
   LEVELS[i].collapsed = false; LEVELS[i].baked = false;
   (LEVELS[i].gaps || []).forEach(g => { g.caderi = 0; g.pod = false; });
+  (LEVELS[i].pits || []).forEach(p => { p.caderi = 0; p.pod = false; });
   LEVELS[i].bits.forEach(b => b.got = false);
   LEVELS[i].roosters.forEach(r => { r.follow = false; r.x = (r.x1 + r.x2)/2; });
-  LEVELS[i].monsters.forEach(m => { m.boo = false; m.sunk = false; m.sinkT = 0; m.y = m.y0; });
+  LEVELS[i].monsters.forEach(m => { m.boo = false; m.sunk = false; m.sinkT = 0; m.y = m.y0;
+                                    m.seek = false; m.blocat = false;
+                                    m.vy = 0; m.cool = 0; m.pas = 0; m.onGround = true;
+                                    m.x = (m.x1 + m.x2)/2; m.dir = 1; });
   closePanel(); state = STATE.PLAY;
 }
 
@@ -3102,19 +3578,64 @@ function showPig(keep){
   if(!keep) sfx.win();
 }
 
+function showCandy(){
+  state = STATE.STORY;
+  openPanel(
+    '<p class="eyebrow">Ai tras placa pe mal</p>' +
+    '<h2>Lumea dulciurilor 🍭</h2>' +
+    '<p class="lead">Dincolo de tufe, pământul e din bomboană. Copaci de acadele, ' +
+    'nori de vată de zahăr, jeleuri cât tine de mari. Porcul a rămas la râu, ' +
+    'zice că el așteaptă aici.</p>' +
+    '<p class="lead">Numai că bomboana de sub picioare a <b>crăpat</b> pe alocuri. ' +
+    'Peste crăpături trebuie <b>sărit</b> — dedesubt nu e nimic. Iar prin lume umblă ' +
+    'monștri cu <b>mustață din vată de zahăr</b>, și ăștia nu stau proști pe loc: ' +
+    'dacă te văd, vin după tine.</p>' +
+    '<p class="lead">La capătul lumii e un raft cu <b>arme din dulce</b>. Îți alegi una — ' +
+    'cu ea o să bați monștrii din aventurile care vin.</p>' +
+    '<button class="btn" id="dulce" type="button">În lumea dulciurilor! 🍬</button>' +
+    '<p class="tiny">Sari de <b>două ori la rând</b> ca să treci crăpăturile late. ' +
+    'Monștrii sunt mai lenți decât tine, deci poți fugi de ei — sau le sari în cap. ' +
+    'Dacă tot cazi în aceeași crăpătură, apare o punte.</p>'
+  );
+  document.getElementById('dulce').onclick = () => startLevel(9);
+  sfx.win();
+}
+
+function showArma(keep){
+  state = STATE.ARMA;
+  openPanel(
+    '<p class="eyebrow">Raftul de la capătul lumii dulciurilor</p>' +
+    '<h2>Alege-ți o armă din dulce ⚔️</h2>' +
+    '<p class="lead">Toate sunt din zahăr și niciuna nu se sparge. ' +
+    'Cu ea o să bați monștrii din aventurile care vin.</p>' +
+    '<div class="purse"><svg class="coin-ico" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.4" fill="#FFC93C" stroke="#2E2438" stroke-width="2"/><circle cx="10" cy="10" r="3.9" fill="none" stroke="#E39B12" stroke-width="1.8"/></svg> <b>' + purse + '</b> bănuți</div>' +
+    '<div class="items">' + ARME.map(o => itemCard(o, 'arma')).join('') + '</div>' +
+    '<button class="btn" id="gata" type="button">Gata, plec cu ea! →</button>' +
+    '<p class="tiny">Poți schimba oricând între armele pe care le ai deja.</p>'
+  );
+  paintPreviews(); wireShop();
+  document.getElementById('gata').onclick = showEnd;
+  if(!keep) sfx.win();
+}
+
 function showEnd(){
   state = STATE.END;
   look.torch = false;
+  if(!look.arma) look.arma = 'acadea';
   const o = byId(OUTFITS, look.outfit), h = byId(HAIRS, look.hair),
-        m = byId(MAKEUPS, look.makeup), wg = byId(WINGS, look.wings);
+        m = byId(MAKEUPS, look.makeup), wg = byId(WINGS, look.wings),
+        arma = byId(ARME, look.arma);
   openPanel(
-    '<p class="eyebrow">Sfârșit fericit</p>' +
-    '<h1>Uraaa, ai ajuns la mal!</h1>' +
+    '<p class="eyebrow">Sfârșitul aventurii — deocamdată</p>' +
+    '<h1>Uraaa, ai armă din dulce!</h1>' +
     '<canvas id="fin-prev" width="220" height="270" style="width:16cqw;height:19.6cqw;margin-top:1.4cqw"></canvas>' +
     '<p class="lead">Ai fost curajoasă cu liliecii, ai făcut focul singură, ' +
       'te-ai împrietenit cu o țestoasă vorbitoare, ai făcut pizza ca să momești cocoșii, ' +
-      'ți-ai luat un porc și ai coborât tot râul pe placa de surf, ' +
-      'sărind peste crocodili. Porcul zice că mai vrea o tură.</p>' +
+      'ți-ai luat un porc, ai coborât tot râul pe placa de surf sărind peste crocodili, ' +
+      'și ai trecut lumea dulciurilor din capăt în capăt — peste crăpăturile de bomboană, ' +
+      'pe lângă monștrii cu mustață de vată.</p>' +
+    '<p class="lead">Acum ai și <b>' + arma.name + '</b>. ' +
+      'Ține-o bine: în aventura următoare o să ai monștri de bătut.</p>' +
     '<p class="lead">' + o.name + ' · ' + h.name + ' · ' + m.name + ' · ' + wg.name +
       '<br>Ți-au mai rămas <b>' + purse + '</b> bănuți în buzunar.</p>' +
     '<button class="btn" id="again" type="button">Încă o dată!</button>'

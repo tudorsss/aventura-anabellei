@@ -1244,7 +1244,7 @@ const LEVELS = [
     spikes:[],
     monsters:[],
     mushrooms:[],
-    bolnavi:[[150,2.8],[206,2.65],[262,2.5]],
+    bolnavi:[[262,2.55],[206,2.7],[150,2.85]],
     /* bomboanele stau in grupuri, ca sa iasa un ritm de fugit-inainte-si-intors */
     bomboane:[980,1020,1060,  1480,1526,  1980,2026,2072,  2500,2546,
               2980,3026,3072,  3420,3466],
@@ -1990,8 +1990,15 @@ function step(){
     if(b.sta > 0){
       /* sta jos si plange pana vine ea inapoi dupa el */
       b.sta--;
-      if(Math.abs((p.x + p.w/2) - b.x) < 64){
-        b.sta = 0; b.plans = false;
+      if(b.sta === 0 || Math.abs((p.x + p.w/2) - b.x) < 64){
+        if(b.sta > 0) b.sta = 0;
+        b.plans = false;
+        /* se ridica intr-un loc liber: cat a stat jos, ceilalti l-au depasit si
+           pot fi chiar peste el */
+        for(const o of L.bolnavi){
+          if(o === b || o.sta > 0) continue;
+          if(Math.abs(o.x - b.x) < 46) b.x = Math.max(20, o.x - 46);
+        }
         if(fructeAvute > 0){
           fructeAvute--;
           if(b.mancate > 0) b.mancate--;
@@ -2014,16 +2021,41 @@ function step(){
        20 din 20 luate de ea, zero mancate). Asa iese ritmul pe care l-a desenat
        tati: fugi inainte, iei bomboanele, te intorci dupa ele, mergeti impreuna
        — si daca le aduci peste bomboane necurate, le mananca. */
-    b.aproape = Math.abs((p.x + p.w/2) - b.x) < 220;
+    /* Sirul merge daca ea e langa ORICARE dintre ele, nu doar langa fiecare in
+       parte: cu regula de sir, cel din fata da ritmul, si daca ea impinge din
+       spate ar fi prea departe de el, deci s-ar opri toata coloana si nu s-ar
+       intelege de ce. Masurat: 142 de secunde in loc de 26. */
+    b.aproape = L.bolnavi.some(o => Math.abs((p.x + p.w/2) - o.x) < 220);
     const vit = Math.max(0.55, b.spd - b.mancate * 0.24 + (b.iute > 0 ? 0.9 : 0));
     /* Merg inainte cat timp e ea prin preajma — SI CAND E IN SPATELE LOR. Daca
        nu le-as lasa sa o depaseasca, n-ar putea ajunge niciodata la o bomboana
        inaintea ei, fiindca ea le ridica din mers: mecanica intregului nivel n-ar
        avea cum sa se declanseze, oricat de multe bomboane as pune. Asa, cine le
        impinge din spate le duce fix peste dulciuri. */
-    const usa = L.goalX - 70 - i * 44;
-    if(b.aproape && b.x < usa){
-      b.x = Math.min(b.x + vit, usa); b.dir = 1; b.merge = true;
+    /* Merg IN SIR, la cel putin 46 de pasi unul de altul. Fara regula asta se
+       desenau unele peste altele si se vedea un singur ghemotoc: cel din urma e
+       si cel mai iute, deci ii ajungea din urma pe ceilalti in cateva secunde.
+       Cel din fata da ritmul; daca el se asaza, sirul il asteapta — si asta e
+       corect, fiindca il vezi si te intorci dupa el. */
+    const usa = L.goalX - 70;
+    /* Cel din fata da ritmul, dar CELE ASEZATE nu tin sirul pe loc: trec pe
+       langa el si merg mai departe, iar el ramane in urma pana vine ea. Daca
+       ar astepta, fiecare bomboana mancata ar costa toata coloana cinci
+       secunde — masurat, 142 de secunde in loc de 26 pentru cine joaca prost,
+       si asteptarea nici nu se citeste ca greseala, ci ca joc lent. */
+    let inFata = usa;
+    for(let k = 0; k < L.bolnavi.length; k++){
+      const o = L.bolnavi[k];
+      if(k === i || o.sta > 0) continue;
+      /* "in fata" se judeca dupa POZITIE, nu dupa numarul lui din sir: cel care
+         s-a asezat si a fost depasit ajunge in coada, iar daca as pastra ordinea
+         initiala i-ar impinge pe ceilalti inapoi cand se ridica — si atunci se
+         desenau iar unul peste altul. */
+      const eInFata = o.x > b.x + 0.01 || (Math.abs(o.x - b.x) <= 0.01 && k < i);
+      if(eInFata) inFata = Math.min(inFata, o.x - 46);
+    }
+    if(b.aproape && b.x < inFata){
+      b.x = Math.min(b.x + vit, inFata); b.dir = 1; b.merge = true;
     }else b.merge = false;
     b.y = L.groundY - 30 - (b.merge ? Math.abs(Math.sin(b.t * 2.1)) * 4 : 0);
     /* mananca orice bomboana peste care ajunge — asta e tot nivelul */
@@ -2065,7 +2097,7 @@ function step(){
   }
   /* La spital nu intra fara toate animalutele bolnave. */
   if(arrived && L.bolnavi.length){
-    const cuEa = L.bolnavi.filter(b => b.sta === 0 && Math.abs(b.x - (p.x + p.w/2)) < 260).length;
+    const cuEa = L.bolnavi.filter(b => b.sta === 0 && Math.abs(b.x - (p.x + p.w/2)) < 400).length;
     if(cuEa < L.bolnavi.length){
       arrived = false;
       gateHold(L.goalX + 20,
@@ -2879,8 +2911,15 @@ function drawLog(L, bl){
 /* Animalutul bolnav: verzui, cu pete, ochii cazuti si o lacrima cand plange.
    Cand sta jos se turteste si isi tine burtica. */
 function drawBolnav(b){
-  const jos = b.sta > 0;
-  g.save(); g.translate(b.x, b.y + (jos ? 8 : 0));
+  drawBolnavPe(g, b.x, b.y + (b.sta > 0 ? 8 : 0), 1,
+               { hue:b.hue, jos:b.sta > 0, mancate:b.mancate, faza:b.t, plans:b.plans });
+}
+
+/* Unul singur pentru amandoua locurile: si pe strada, si in cabinetul
+   doctorului. Altfel ar fi doua desene care ar ajunge sa arate diferit. */
+function drawBolnavPe(g, cx, cy, sc, o){
+  const jos = o.jos, b = { t:o.faza || 0, mancate:o.mancate || 0, hue:o.hue || 0, plans:o.plans };
+  g.save(); g.translate(cx, cy); g.scale(sc, sc);
   g.lineWidth = 2.5; g.strokeStyle = INK; g.lineJoin = 'round';
   const w = 40, h = jos ? 30 : 36;
 
@@ -2940,6 +2979,57 @@ function drawBolnav(b){
     g.fillStyle = '#7FA88A'; g.fill(); g.stroke();
   }
   g.restore();
+}
+
+/* Doctorul: halat alb, stetoscop, ochelari. */
+function drawDoctor(c, x, y, sc){
+  c.save(); c.translate(x, y); c.scale(sc, sc);
+  c.lineWidth = 2.4; c.strokeStyle = INK; c.lineJoin = 'round';
+  /* picioare */
+  c.fillStyle = '#4E5A78';
+  rr(c, -11, -18, 9, 20, 3); c.fill(); c.stroke();
+  rr(c, 3, -18, 9, 20, 3); c.fill(); c.stroke();
+  c.fillStyle = '#3A3550';
+  rr(c, -13, -2, 13, 6, 3); c.fill(); c.stroke();
+  rr(c, 2, -2, 13, 6, 3); c.fill(); c.stroke();
+  /* halat */
+  c.beginPath();
+  c.moveTo(-16, -18); c.lineTo(-14, -58); c.lineTo(14, -58); c.lineTo(16, -18);
+  c.closePath(); c.fillStyle = '#FFFFFF'; c.fill(); c.stroke();
+  c.beginPath(); c.moveTo(0, -58); c.lineTo(0, -18); c.stroke();
+  /* buzunar */
+  rr(c, 5, -34, 9, 8, 2); c.fillStyle = '#EEF2F7'; c.fill(); c.stroke();
+  /* brate */
+  c.fillStyle = '#FFFFFF';
+  rr(c, -25, -56, 10, 30, 5); c.fill(); c.stroke();
+  rr(c, 15, -56, 10, 30, 5); c.fill(); c.stroke();
+  c.fillStyle = SKIN;
+  c.beginPath(); c.arc(-20, -24, 5, 0, 7); c.fill(); c.stroke();
+  c.beginPath(); c.arc(20, -24, 5, 0, 7); c.fill(); c.stroke();
+  /* stetoscop */
+  c.strokeStyle = '#3A3550'; c.lineWidth = 2.6;
+  c.beginPath();
+  c.moveTo(-8, -57); c.quadraticCurveTo(-12, -38, -3, -34);
+  c.quadraticCurveTo(6, -38, 8, -57); c.stroke();
+  c.beginPath(); c.arc(-3, -31, 4.4, 0, 7);
+  c.fillStyle = '#B9C4D4'; c.fill(); c.lineWidth = 2; c.strokeStyle = INK; c.stroke();
+  /* cap */
+  c.lineWidth = 2.4;
+  c.beginPath(); c.arc(0, -70, 14, 0, 7);
+  c.fillStyle = SKIN; c.fill(); c.stroke();
+  /* par + ochelari */
+  c.beginPath(); c.arc(0, -74, 14, Math.PI, 0); c.closePath();
+  c.fillStyle = '#6B6472'; c.fill(); c.stroke();
+  c.strokeStyle = INK; c.lineWidth = 2;
+  c.beginPath(); c.arc(-5, -70, 4.6, 0, 7); c.stroke();
+  c.beginPath(); c.arc(5, -70, 4.6, 0, 7); c.stroke();
+  c.beginPath(); c.moveTo(-0.4, -70); c.lineTo(0.4, -70); c.stroke();
+  c.fillStyle = INK;
+  c.beginPath(); c.arc(-5, -70, 1.8, 0, 7); c.fill();
+  c.beginPath(); c.arc(5, -70, 1.8, 0, 7); c.fill();
+  /* gura blanda */
+  c.beginPath(); c.moveTo(-4, -63); c.quadraticCurveTo(0, -60, 4, -63); c.stroke();
+  c.restore();
 }
 
 /* Bomboana de pe jos — cea pe care ea trebuie sa o ia inaintea lor. */
@@ -3018,6 +3108,39 @@ function drawTown(L){
     g.fillStyle = 'rgba(95,201,139,.7)';
     puff(g, x, L.groundY - 86, 30);
   }
+
+  /* Indicatoare spre spital, ca sa se vada tot drumul UNDE le duci si cat mai e.
+     Fara ele, un copil vede doar o strada si niste animalute triste. */
+  g.save(); g.translate(-cam, 0);
+  const x0s = cam - 120, x1s = cam + W + 120;
+  for(let sx = 760; sx < L.goalX - 300; sx += 720){
+    if(sx < x0s || sx > x1s) continue;
+    if(L.platforms.some(pl => sx + 84 > pl.x - 20 && sx - 84 < pl.x + pl.w + 20)) continue;
+    const ram = Math.max(0, Math.round((L.goalX - sx) / 10));
+    g.strokeStyle = '#9AA4B4'; g.lineWidth = 7; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(sx, L.groundY - 6); g.lineTo(sx, L.groundY - 92); g.stroke();
+    g.lineCap = 'butt';
+    rr(g, sx - 84, L.groundY - 152, 168, 60, 9);
+    g.fillStyle = '#2C6DB5'; g.fill();
+    g.lineWidth = 2.8; g.strokeStyle = INK; g.stroke();
+    /* crucea alba, in stanga */
+    g.fillStyle = '#FFFFFF';
+    g.fillRect(sx - 74, L.groundY - 126, 26, 9);
+    g.fillRect(sx - 65, L.groundY - 135, 9, 26);
+    /* textul, la mijloc */
+    g.font = '700 18px Fredoka, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('SPITAL', sx + 2, L.groundY - 132);
+    g.font = '600 14px Fredoka, sans-serif';
+    g.fillText(ram + ' m', sx + 2, L.groundY - 110);
+    /* sageata, in dreapta */
+    g.beginPath();
+    g.moveTo(sx + 56, L.groundY - 132); g.lineTo(sx + 74, L.groundY - 122);
+    g.lineTo(sx + 56, L.groundY - 112); g.closePath();
+    g.fill();
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  }
+  g.restore();
 
   /* trotuar si sosea */
   g.fillStyle = '#D9D3C6'; g.fillRect(0, L.groundY, W, H - L.groundY);
@@ -3610,9 +3733,17 @@ function drawHUD(L){
 
   /* animalutele bolnave: cate sunt cu ea, si cate fructe are in buzunar */
   if(L.bolnavi.length){
+    const cuEle = L.bolnavi.filter(b => b.sta === 0 && Math.abs(b.x - (player.x + player.w/2)) < 400).length;
+    g.save();
+    g.font = '600 15px Fredoka, sans-serif';
+    g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.fillStyle = 'rgba(46,36,56,.72)';
+    g.fillText('🏥 ' + cuEle + ' din ' + L.bolnavi.length + ' cu tine', 22, 96);
+    g.restore();
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
     for(let i = 0; i < L.bolnavi.length; i++){
       const b = L.bolnavi[i];
-      const cuEa = b.sta === 0 && Math.abs(b.x - (player.x + player.w/2)) < 260;
+      const cuEa = b.sta === 0 && Math.abs(b.x - (player.x + player.w/2)) < 400;
       g.save(); g.translate(30 + i*30, 68);
       g.beginPath(); g.arc(0, 0, 10, 0, 7);
       g.fillStyle = cuEa ? '#8FB295' : 'rgba(255,255,255,.28)'; g.fill();
@@ -3968,7 +4099,7 @@ function startLevel(i){
   LEVELS[i].fructe.forEach(f => f.got = false);
   LEVELS[i].bolnavi.forEach((b, k) => {
     b.sta = 0; b.plans = false; b.mancate = 0; b.iute = 0;
-    b.x = 150 + k*54; b.y = LEVELS[i].groundY - 30;
+    b.x = 262 - k*56; b.y = LEVELS[i].groundY - 30;
   });
   LEVELS[i].collapsed = false; LEVELS[i].baked = false;
   (LEVELS[i].gaps || []).forEach(g => { g.caderi = 0; g.pod = false; });
@@ -4208,6 +4339,55 @@ function showMonstri(){
   sfx.win();
 }
 
+/* Cabinetul, desenat: doctorul, cele trei animalute care plang, si ea cu ele.
+   Fara poza, toata rasplata nivelului e un perete de text — iar jocul e pentru
+   un copil de cinci ani. */
+function deseneazaCabinet(c){
+  c.clearRect(0, 0, 560, 240);
+  /* peretele si podeaua cabinetului */
+  c.fillStyle = '#EAF2F6'; c.fillRect(0, 0, 560, 240);
+  c.fillStyle = '#D6E2E8'; c.fillRect(0, 186, 560, 54);
+  c.strokeStyle = 'rgba(46,36,56,.25)'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(0, 186); c.lineTo(560, 186); c.stroke();
+  /* crucea de pe perete */
+  c.save(); c.translate(84, 58);
+  c.beginPath(); c.arc(0, 0, 30, 0, 7);
+  c.fillStyle = '#FFFFFF'; c.fill(); c.lineWidth = 2.6; c.strokeStyle = INK; c.stroke();
+  c.fillStyle = '#E5566A';
+  c.fillRect(-6, -18, 12, 36); c.fillRect(-18, -6, 36, 12);
+  c.restore();
+  /* patul de consultatie */
+  c.lineWidth = 2.4; c.strokeStyle = INK; c.lineJoin = 'round';
+  rr(c, 400, 128, 140, 30, 6); c.fillStyle = '#BFD8E6'; c.fill(); c.stroke();
+  rr(c, 408, 158, 10, 28, 3); c.fillStyle = '#9AA4B4'; c.fill(); c.stroke();
+  rr(c, 522, 158, 10, 28, 3); c.fill(); c.stroke();
+  rr(c, 404, 118, 40, 14, 5); c.fillStyle = '#FFF7EC'; c.fill(); c.stroke();
+
+  /* doctorul */
+  drawDoctor(c, 150, 186, 1.05);
+
+  /* cele trei animalute, asezate si plangand */
+  for(let i = 0; i < 3; i++){
+    drawBolnavPe(c, 258 + i*66, 178, 0.92,
+                 { hue:i, jos:true, mancate:Math.min(3, Math.round(mancateTot / 3)), faza:i*1.4, plans:true });
+  }
+
+  /* fetita, in dreapta, cu arma si cu cutia de fructe */
+  drawGirl(c, look, { x:498, y:186, scale:0.86, face:-1, mood:'ok' });
+
+  /* ce zice doctorul */
+  c.font = '700 17px Fredoka, sans-serif';
+  c.textAlign = 'left'; c.textBaseline = 'middle';
+  rr(c, 196, 26, 200, 40, 12);
+  c.fillStyle = '#FFF7EC'; c.fill();
+  c.lineWidth = 2.4; c.strokeStyle = INK; c.stroke();
+  c.beginPath(); c.moveTo(210, 64); c.lineTo(200, 84); c.lineTo(224, 66); c.closePath();
+  c.fillStyle = '#FFF7EC'; c.fill(); c.stroke();
+  c.fillStyle = INK;
+  c.fillText('„Au diabet."', 214, 47);
+  c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+}
+
 function showDoctor(){
   state = STATE.STORY;
   const n = LEVELS[10].bolnavi.length;
@@ -4216,6 +4396,7 @@ function showDoctor(){
   openPanel(
     '<p class="eyebrow">Cabinetul doctorului</p>' +
     '<h2>„Au diabet." 🩺</h2>' +
+    '<canvas id="scena-doc" width="560" height="240" style="width:min(100%,40cqw);height:auto;margin:.6cqw 0 1cqw"></canvas>' +
     '<p class="lead">Doctorul se uită la toți ' + n + ', apoi își scoate ochelarii. ' +
     '„Au mâncat prea multe dulciuri. Asta se numește <b>diabet</b>: corpul nu mai ' +
     'știe ce să facă cu atâta zahăr, și de-aia îi doare burtica și sunt obosiți."</p>' +
@@ -4238,6 +4419,7 @@ function showDoctor(){
     '<button class="btn" id="gata2" type="button">Mulțumim, domnule doctor! 🍎</button>' +
     '<p class="tiny">Dulciurile nu sunt otravă — dar nici mâncare. Puține, și rar.</p>'
   );
+  deseneazaCabinet(document.getElementById('scena-doc').getContext('2d'));
   document.getElementById('gata2').onclick = () => { look.fructe = true; showEnd(); };
   sfx.win();
 }

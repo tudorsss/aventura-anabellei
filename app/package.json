@@ -1,0 +1,16 @@
+{
+  "name": "aventura-anabellei",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aventura Anabellei — varianta de aplicatie iOS",
+  "scripts": {
+    "build": "python3 build-www.py",
+    "sync": "python3 build-www.py && npx cap sync ios",
+    "open": "npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0"
+  }
+}

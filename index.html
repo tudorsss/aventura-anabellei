@@ -225,8 +225,41 @@ h2{font-family:'Fredoka',sans-serif;font-weight:600;font-size:clamp(19px,4cqw,40
   .panel .lvl .em{font-size:18px}
 }
 
+/* ---------- maneta (joystick) ----------
+   Se aprinde unde pui degetul, in jumatatea din stanga a ecranului, si il
+   urmareste. Asa nu trebuie sa nimeresti un buton — pentru un copil de cinci
+   ani asta conteaza mai mult decat orice. */
+.stick{pointer-events:auto;position:absolute;inset:0 auto 0 0;width:48%;touch-action:none}
+.stick-baza{
+  position:absolute;left:0;top:0;
+  width:clamp(96px,20cqw,168px);height:clamp(96px,20cqw,168px);
+  margin-left:calc(clamp(96px,20cqw,168px) / -2);
+  margin-top:calc(clamp(96px,20cqw,168px) / -2);
+  border-radius:50%;border:3px solid var(--ink);
+  background:rgba(255,247,236,.42);
+  opacity:0;transition:opacity .12s ease;pointer-events:none;
+}
+.stick-baza.on{opacity:1}
+.stick-buton{
+  position:absolute;left:50%;top:50%;
+  width:44%;height:44%;margin-left:-22%;margin-top:-22%;
+  border-radius:50%;border:3px solid var(--ink);
+  background:rgba(255,247,236,.92);
+  box-shadow:0 3px 0 0 var(--ink);
+}
+/* sagetile de pe baza, ca sa se vada ca se trage in laturi */
+.stick-baza::before,.stick-baza::after{
+  content:'';position:absolute;top:50%;margin-top:-7px;
+  border-top:7px solid transparent;border-bottom:7px solid transparent;
+  opacity:.5;
+}
+.stick-baza::before{left:7px;border-right:10px solid var(--ink)}
+.stick-baza::after{right:7px;border-left:10px solid var(--ink)}
+
 /* ---------- touch pad ---------- */
-.pad{position:absolute;inset:auto 0 0 0;display:none;justify-content:space-between;padding:clamp(8px,2.2cqw,22px) clamp(10px,2.6cqw,26px);z-index:4;pointer-events:none}
+/* maneta e asezata absolut, deci in randul de butoane a mai ramas doar grupul
+   din dreapta — fara flex-end ar sta lipit de stanga, exact peste maneta */
+.pad{position:absolute;inset:auto 0 0 0;display:none;justify-content:flex-end;padding:clamp(8px,2.2cqw,22px) clamp(10px,2.6cqw,26px);z-index:4;pointer-events:none}
 .pad.on{display:flex}
 .pad .grp{display:flex;gap:clamp(8px,1.6cqw,16px)}
 .pad button{
@@ -319,9 +352,8 @@ h2{font-family:'Fredoka',sans-serif;font-weight:600;font-size:clamp(19px,4cqw,40
     <canvas id="cv" width="960" height="540" aria-label="Joc: Aventura Anabellei"></canvas>
 
     <div class="pad" id="pad">
-      <div class="grp">
-        <button id="bl" aria-label="Stânga">◀</button>
-        <button id="br" aria-label="Dreapta">▶</button>
+      <div class="stick" id="stick" aria-label="Manetă de mers">
+        <div class="stick-baza" id="stick-baza"><div class="stick-buton" id="stick-buton"></div></div>
       </div>
       <div class="grp">
         <button id="bf" aria-label="Aruncă bilă de foc">🔥</button>
@@ -338,7 +370,7 @@ h2{font-family:'Fredoka',sans-serif;font-weight:600;font-size:clamp(19px,4cqw,40
     <button id="mute" type="button">🔊 Sunet</button>
     <button id="restart" type="button">↺ De la început</button>
     <button id="levels" type="button">☰ Nivelurile</button>
-    <span class="note">Săgeți sau A / D ca să mergi · Sus, W sau Spațiu ca să sari</span>
+    <span class="note">Săgeți sau A / D ca să mergi · Sus, W sau Spațiu ca să sari · pe telefon, manetă și butoane</span>
   </div>
 </div>
 
@@ -1311,7 +1343,7 @@ function resetPlayer(){
 
 /* ---------------- input ---------------- */
 const keys = {};
-const touchState = { left:false, right:false, jump:false, fire:false };
+const touchState = { left:false, right:false, up:false, down:false, jump:false, fire:false };
 
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
@@ -1321,7 +1353,10 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 /* P — pentru parinti: arata cadrele si pasii, ca sa se poata compara doua copii */
 addEventListener('keydown', e => { if(e.key === 'p' || e.key === 'P') fpsShow = !fpsShow; });
-function releaseAll(){ for(const k in keys) keys[k] = false; touchState.left = touchState.right = touchState.jump = touchState.fire = false; }
+function releaseAll(){
+  for(const k in keys) keys[k] = false;
+  for(const k in touchState) touchState[k] = false;
+}
 addEventListener('blur', releaseAll);
 document.addEventListener('visibilitychange', () => { if(document.hidden) releaseAll(); });
 
@@ -1333,10 +1368,66 @@ function bindPad(el, prop){
   el.addEventListener('pointercancel', off);
   el.addEventListener('pointerleave', off);
 }
-bindPad(document.getElementById('bl'), 'left');
-bindPad(document.getElementById('br'), 'right');
 bindPad(document.getElementById('bj'), 'jump');
 bindPad(document.getElementById('bf'), 'fire');
+
+/* Maneta: apare unde pui degetul in jumatatea stanga si il urmareste. Da si
+   sus/jos, nu doar stanga/dreapta — in apa si in zbor asta inlocuieste butonul
+   de foc folosit pe post de scufundare, care nu se intelegea. */
+(function(){
+  const zona  = document.getElementById('stick');
+  const baza  = document.getElementById('stick-baza');
+  const buton = document.getElementById('stick-buton');
+  const PRAG_X = 0.24, PRAG_Y = 0.42;   /* cat trebuie tras ca sa conteze */
+  let deget = null, cx = 0, cy = 0, raza = 60;
+
+  const zero = () => { touchState.left = touchState.right = touchState.up = touchState.down = false; };
+
+  function aseaza(e){
+    const r = zona.getBoundingClientRect();
+    raza = baza.offsetWidth / 2 || 60;
+    /* Tinem mijlocul manetei destul de inauntru cat sa nu iasa cercul din
+       ecran: pus fix sub deget, la marginea de jos-stanga se revarsa afara
+       din cadrul jocului si arata rupt. */
+    cx = clamp(e.clientX - r.left, raza + 4, r.width  - raza - 4);
+    cy = clamp(e.clientY - r.top,  raza + 4, r.height - raza - 4);
+    baza.style.left = cx + 'px';
+    baza.style.top  = cy + 'px';
+    baza.classList.add('on');
+    buton.style.left = '50%'; buton.style.top = '50%';
+  }
+  function trage(e){
+    const r = zona.getBoundingClientRect();
+    let dx = (e.clientX - r.left) - cx, dy = (e.clientY - r.top) - cy;
+    const d = Math.sqrt(dx*dx + dy*dy);
+    if(d > raza){ dx = dx / d * raza; dy = dy / d * raza; }
+    buton.style.left = 'calc(50% + ' + dx.toFixed(1) + 'px)';
+    buton.style.top  = 'calc(50% + ' + dy.toFixed(1) + 'px)';
+    const nx = dx / raza, ny = dy / raza;
+    touchState.left  = nx < -PRAG_X;
+    touchState.right = nx >  PRAG_X;
+    touchState.up    = ny < -PRAG_Y;
+    touchState.down  = ny >  PRAG_Y;
+  }
+  function lasa(){
+    deget = null; zero();
+    baza.classList.remove('on');
+    buton.style.left = '50%'; buton.style.top = '50%';
+  }
+
+  zona.addEventListener('pointerdown', e => {
+    if(deget !== null) return;
+    e.preventDefault(); deget = e.pointerId;
+    zona.setPointerCapture(e.pointerId);
+    aseaza(e); trage(e);
+  });
+  zona.addEventListener('pointermove', e => {
+    if(e.pointerId !== deget) return;
+    e.preventDefault(); trage(e);
+  });
+  for(const ev of ['pointerup', 'pointercancel'])
+    zona.addEventListener(ev, e => { if(e.pointerId === deget){ e.preventDefault(); lasa(); } });
+})();
 if(matchMedia('(pointer:coarse)').matches) document.getElementById('pad').classList.add('on');
 
 /* ---------------- fizica ---------------- */
@@ -1540,9 +1631,11 @@ function step(){
   const pupicata = p.pupicT > 0;
   const left  = !pupicata && (keys.arrowleft  || keys.a || touchState.left);
   const right = !pupicata && (keys.arrowright || keys.d || touchState.right);
-  const jump  = !pupicata && (keys.arrowup    || keys.w || keys[' '] || touchState.jump);
+  const inApaSauInAer = L.mode === 'swim' || L.mode === 'fly';
+  const jump  = !pupicata && (keys.arrowup || keys.w || keys[' '] || touchState.jump ||
+                              (inApaSauInAer && touchState.up));
   const fire  = keys.x || keys.f || touchState.fire;
-  const down  = keys.arrowdown || keys.s || (L.mode === 'swim' && touchState.fire);
+  const down  = keys.arrowdown || keys.s || touchState.down;
   const flying   = L.mode === 'fly';
   const swimming = L.mode === 'swim';
   const sliding  = L.mode === 'slide';
@@ -4011,7 +4104,7 @@ function showIntro(){
     '<p class="lead">Unsprezece niveluri: strânge bănuți prin <b>supermarket</b> și cumpără-ți hăinuțe la croitorie, treci prin <b>galerie</b> până la salon, taie <b>pădurea</b> până la vrăjitor — el te face zână — <b>zboară prin nori</b> la castelul prințesei, intră în <b>peștera</b> cu lilieci, fă un foc, <b>înoată</b> până la țestoasa vorbitoare, alunecă pe <b>toboganul fermecat</b> drept într-o <b>pizzerie</b>, fă o pizza ca să momești cocoșii, ia-ți un <b>porc</b> și coboară <b>râul</b> pe placa de surf, sărind peste crocodili, apoi intră în <b>lumea dulciurilor</b>: sari peste crăpăturile de bomboană, fugi de monștrii cu mustață de vată de zahăr și alege-ți o <b>armă din dulce</b> — din care niște monstruleți o să ronțăie, o să se ' +
     'îmbolnăvească, și o să trebuiască <b>duși la spital</b>.</p>' +
     '<div class="keys">' +
-      '<span class="key">◀ ▶ mergi</span>' +
+      '<span class="key">◀ ▶ mergi (pe telefon, trage de manetă)</span>' +
       '<span class="key">▲ / Spațiu sari — de două ori, sari mai sus</span>' +
       '<span class="key">🐛 animăluțele fug după tine și sar pe rafturi</span>' +
       '<span class="key">❤ animăluțele nu te dor — te prind, îți dau pupici și te lasă</span>' +
@@ -4190,7 +4283,7 @@ function showFire(){
       '<span class="key">▲ înoți în sus</span>' +
       '<span class="key">▼ înoți în jos</span>' +
       '<span class="key">◀ ▶ înainte și înapoi</span>' +
-      '<span class="key">pe telefon, 🔥 te scufundă</span>' +
+      '<span class="key">pe telefon, trage maneta în jos ca să te scufunzi</span>' +
       '<span class="key">🌀 șerpuiește printre vârtejuri — te trag la mijloc</span>' +
     '</div>' +
     '<button class="btn" id="swim" type="button">Intru în apă 🌊</button>'

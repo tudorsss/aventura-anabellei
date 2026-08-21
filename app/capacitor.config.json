@@ -1,0 +1,14 @@
+{
+  "appId": "co.betterqa.aventuraanabellei",
+  "appName": "Aventura Anabellei",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false,
+    "backgroundColor": "#FDF3E3",
+    "limitsNavigationsToAppBoundDomains": true
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

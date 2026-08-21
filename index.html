@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Un platformer în zece niveluri gândit de Anabelle: supermarket, croitorie, salon, vrăjitorul care o face zână, zborul la castelul prințesei, peștera cu lilieci, râul cu țestoasa vorbitoare, toboganul fermecat, pizzeria cu cocoși, râul cu crocodili și lumea dulciurilor cu monștri cu mustață de vată.">
+<meta name="description" content="Un platformer în unsprezece niveluri gândit de Anabelle: supermarket, croitorie, salon, vrăjitorul care o face zână, zborul la castelul prințesei, peștera cu lilieci, râul cu țestoasa vorbitoare, toboganul fermecat, pizzeria cu cocoși, râul cu crocodili lumea dulciurilor cu monștri cu mustață de vată și drumul spre spital.">
 <meta name="theme-color" content="#FDF3E3">
 
 <link rel="manifest" href="manifest.webmanifest">
@@ -730,6 +730,20 @@ function drawGirl(c, look, o){
     c.restore(); c.lineWidth = 2.2;
   }
 
+  /* --- cutia cu fructe primita de la doctor --- */
+  if(look.fructe){
+    c.save(); c.translate(-15, -24);
+    c.lineWidth = 1.8; c.strokeStyle = INK; c.lineJoin = 'round';
+    rr(c, -8, 0, 16, 11, 2); c.fillStyle = '#C6996B'; c.fill(); c.stroke();
+    c.fillStyle = '#E5566A';
+    c.beginPath(); c.arc(-3.5, -1.5, 3.4, 0, 7); c.fill(); c.stroke();
+    c.fillStyle = '#FFC93C';
+    c.beginPath(); c.arc(3.5, -2, 3, 0, 7); c.fill(); c.stroke();
+    c.fillStyle = '#5FC98B';
+    c.beginPath(); c.arc(0, -4.5, 2.6, 0, 7); c.fill(); c.stroke();
+    c.restore(); c.lineWidth = 2.2;
+  }
+
   /* --- arma din dulce --- */
   if(look.arma) drawArma(c, look.arma, o);
 
@@ -941,6 +955,16 @@ function buildLevel(cfg){
     pits: (cfg.pits || []).map(p => ({a:p[0], b:p[1], caderi:0, pod:false})),
     whirls: (cfg.whirls || []).map(w => ({x:w[0], y:w[1], r:w[2] || 92})),
     logs: [],
+    /* Nivelul 11: animalutele au ciugulit din arma ei de dulciuri si sunt
+       bolnave. Merg dupa ea spre spital, dar mananca ORICE bomboana le iese in
+       cale — deci treaba ei e sa ia bomboanele de pe jos inainte sa ajunga ele
+       acolo. Fructele le fac bine. */
+    bolnavi: (cfg.bolnavi || []).map((b, i) => ({
+      x:b[0], y:470 - 30, dir:1, t:i*1.7, spd:b[1] || 1.7,
+      sta:0, plans:false, mancate:0, iute:0, hue:i % 3
+    })),
+    bomboane: (cfg.bomboane || []).map(x => ({x:x, y:470 - 16, got:false, mancata:false})),
+    fructe: (cfg.fructe || []).map(x => ({x:x, y:470 - 22, got:false})),
     goalX: cfg.goalX, goalLabel: cfg.goalLabel
   };
   cfg.platforms.forEach(p => L.platforms.push({x:p[0], y:p[1], w:p[2], h:20}));
@@ -1018,7 +1042,8 @@ function buildSurf(cfg){
     len:cfg.len, groundY:470, goalX:cfg.len - 60, goalLabel:'MALUL',
     platforms:[], spikes:[], monsters:[], coins:[], mushrooms:[], bits:[], roosters:[],
     bitKind:'stick', bitsNeeded:0, roostersNeeded:0, collapsed:false,
-    whirls:[], logs:(cfg.logs || []).map(x => ({x:x, w:74, h:32}))
+    whirls:[], logs:(cfg.logs || []).map(x => ({x:x, w:74, h:32})),
+    bolnavi:[], bomboane:[], fructe:[]
   };
   (cfg.planks || []).forEach(p => L.platforms.push({x:p[0], y:p[1], w:p[2], h:16}));
   (cfg.crocs || []).forEach(c => L.monsters.push({
@@ -1058,7 +1083,7 @@ function buildSlide(cfg){
     len:cfg.len, groundY:470, goalX:cfg.len - 60, goalLabel:'GATA',
     platforms:[], spikes:[], monsters:[], coins:[], mushrooms:[], bits:[], roosters:[],
     bitKind:'stick', bitsNeeded:0, roostersNeeded:0, collapsed:false,
-    whirls:[], logs:[],
+    whirls:[], logs:[], bolnavi:[], bomboane:[], fructe:[],
     gaps: (cfg.gaps || []).map(g => ({ a:g[0], b:g[1], caderi:0, pod:false }))
   };
   for(let x = 300; x < L.len - 180; x += 86){
@@ -1205,6 +1230,25 @@ const LEVELS = [
               [2500,2300,2740,.1,0,430],[3150,2950,3460,.2,1,430],
               [3760,3640,4000,.15,2,430],[4050,3900,4160,.1,0,430],
               [4600,4360,4840,.25,0,430],[5200,5020,5360,.2,1,430]]
+  }),
+  /* Nivelul gandit de Anabelle si de tati pe 2026-08-21: monstruletii au
+     ciugulit din arma ei de dulciuri, s-au imbolnavit, si trebuie dusi la
+     spital. Bomboanele de pe drum sunt obstacolul — nu pentru ea, ci pentru
+     ELE. Ea trece peste ele, dar animalutele le mananca daca ajung acolo, si
+     atunci se asaza pe jos si plang pana vine ea inapoi. */
+  buildLevel({
+    name:'Nivelul 11', sub:'Drumul spre spital', theme:'town', len:3900, goalX:3700,
+    goalLabel:'SPITAL', after:'doctor',
+    platforms:[[470,372,150],[1010,362,160],[1560,368,150],[2140,360,170],
+               [2720,366,150],[3260,360,160]],
+    spikes:[],
+    monsters:[],
+    mushrooms:[],
+    bolnavi:[[150,2.8],[206,2.65],[262,2.5]],
+    /* bomboanele stau in grupuri, ca sa iasa un ritm de fugit-inainte-si-intors */
+    bomboane:[980,1020,1060,  1480,1526,  1980,2026,2072,  2500,2546,
+              2980,3026,3072,  3420,3466],
+    fructe:[700, 1300, 1800, 2320, 2820, 3260]
   })
 ];
 
@@ -1214,7 +1258,7 @@ const STATE = { INTRO:'intro', PLAY:'play', SHOP:'shop', SALON:'salon', FAIRY:'f
                 PIZZERIA:'pizzeria', PIG:'pig', ARMA:'arma', LEVELS:'levels', END:'end' };
 
 let state, levelIdx, cam, camY, tick, purse, owned, look, player, pops, shakeT, balls;
-let bitsGot, roostersGot, boos, bubbles;
+let bitsGot, roostersGot, boos, bubbles, fructeAvute, mancateTot;
 
 function freshGame(){
   state    = STATE.INTRO;
@@ -1223,7 +1267,8 @@ function freshGame(){
   owned    = { rupta:true, ciufulit:true, none:true, transparente:true, porcRoz:true,
                acadea:true };
   look     = { outfit:'rupta', hair:'ciufulit', makeup:'none', wings:'transparente',
-               fairy:false, torch:false, pizza:false, pig:'porcRoz', arma:null };
+               fairy:false, torch:false, pizza:false, pig:'porcRoz', arma:null,
+               fructe:false };
   LEVELS.forEach(L => {
     L.coins.forEach(c => c.got = false);
     L.mushrooms.forEach(m => m.got = false);
@@ -1232,6 +1277,9 @@ function freshGame(){
     L.collapsed = false; L.baked = false;
     (L.gaps || []).forEach(g => { g.caderi = 0; g.pod = false; });
     (L.pits || []).forEach(p => { p.caderi = 0; p.pod = false; });
+    L.bomboane.forEach(b => { b.got = false; b.mancata = false; });
+    L.fructe.forEach(f => f.got = false);
+    L.bolnavi.forEach((b, i) => { b.sta = 0; b.plans = false; b.mancate = 0; b.iute = 0; });
     L.monsters.forEach(m => { m.dead = false; m.boo = false; m.sunk = false; m.sinkT = 0;
                               m.seek = false; m.blocat = false;
                               m.vy = 0; m.cool = 0; m.pas = 0; m.onGround = true;
@@ -1241,6 +1289,7 @@ function freshGame(){
   resetPlayer();
   cam = 0; camY = 0; tick = 0; pops = []; shakeT = 0; balls = [];
   bitsGot = 0; roostersGot = 0; boos = 0; bubbles = [];
+  fructeAvute = 0; mancateTot = 0;
   showIntro();
 }
 function startY(L){
@@ -1916,6 +1965,84 @@ function step(){
     }
   }
 
+  /* --- bomboanele de pe jos: ea le strange, ele le mananca --- */
+  for(const bo of L.bomboane){
+    if(bo.got || bo.mancata) continue;
+    if(Math.abs((p.x + p.w/2) - bo.x) < 26 && Math.abs((p.y + p.h) - bo.y) < 56){
+      bo.got = true; purse++; sfx.coin();
+      p.mood = 'wow'; p.moodT = 24;
+      pops.push({x:bo.x, y:bo.y - 24, txt:'Am luat-o eu!', t:56, col:'#5FC98B'});
+    }
+  }
+  for(const fr of L.fructe){
+    if(fr.got) continue;
+    if(Math.abs((p.x + p.w/2) - fr.x) < 26 && Math.abs((p.y + p.h) - fr.y) < 56){
+      fr.got = true; fructeAvute++; sfx.coin();
+      p.mood = 'wow'; p.moodT = 40;
+      pops.push({x:fr.x, y:fr.y - 24, txt:'Un fruct! (' + fructeAvute + ')', t:76, col:'#5FC98B'});
+    }
+  }
+
+  /* --- animalutele bolnave --- */
+  for(let i = 0; i < L.bolnavi.length; i++){
+    const b = L.bolnavi[i];
+    b.t += 0.08;
+    if(b.sta > 0){
+      /* sta jos si plange pana vine ea inapoi dupa el */
+      b.sta--;
+      if(Math.abs((p.x + p.w/2) - b.x) < 64){
+        b.sta = 0; b.plans = false;
+        if(fructeAvute > 0){
+          fructeAvute--;
+          if(b.mancate > 0) b.mancate--;
+          b.iute = 260;
+          pops.push({x:b.x, y:b.y - 44, txt:'Mmm, un fruct! 🍎', t:96, col:'#5FC98B'});
+          sfx.power();
+        }else{
+          pops.push({x:b.x, y:b.y - 44, txt:'Hai, ne așteaptă doctorul', t:90, col:'#7B5CD6'});
+          sfx.jump();
+        }
+      }else if(tick % 90 === 0){
+        pops.push({x:b.x, y:b.y - 40, txt:'Mă doare burtica…', t:80, col:'#4FB3D9'});
+      }
+      continue;
+    }
+    if(b.iute > 0) b.iute--;
+    /* Merg numai cat e ea LANGA ele — sunt bolnave si obosite. Asta face tot
+       nivelul: daca ar merge singure dupa ea, n-ar apuca niciodata o bomboana,
+       fiindca ea e de trei ori mai iute si ar trece prima peste tot (masurat:
+       20 din 20 luate de ea, zero mancate). Asa iese ritmul pe care l-a desenat
+       tati: fugi inainte, iei bomboanele, te intorci dupa ele, mergeti impreuna
+       — si daca le aduci peste bomboane necurate, le mananca. */
+    b.aproape = Math.abs((p.x + p.w/2) - b.x) < 220;
+    const vit = Math.max(0.55, b.spd - b.mancate * 0.24 + (b.iute > 0 ? 0.9 : 0));
+    /* Merg inainte cat timp e ea prin preajma — SI CAND E IN SPATELE LOR. Daca
+       nu le-as lasa sa o depaseasca, n-ar putea ajunge niciodata la o bomboana
+       inaintea ei, fiindca ea le ridica din mers: mecanica intregului nivel n-ar
+       avea cum sa se declanseze, oricat de multe bomboane as pune. Asa, cine le
+       impinge din spate le duce fix peste dulciuri. */
+    const usa = L.goalX - 70 - i * 44;
+    if(b.aproape && b.x < usa){
+      b.x = Math.min(b.x + vit, usa); b.dir = 1; b.merge = true;
+    }else b.merge = false;
+    b.y = L.groundY - 30 - (b.merge ? Math.abs(Math.sin(b.t * 2.1)) * 4 : 0);
+    /* mananca orice bomboana peste care ajunge — asta e tot nivelul */
+    for(const bo of L.bomboane){
+      if(bo.got || bo.mancata) continue;
+      if(Math.abs(b.x - bo.x) > 24) continue;
+      bo.mancata = true; b.mancate++; mancateTot++;
+      /* se ridica si singur dupa vreo cinci secunde: daca ar sta pe vecie pana
+         vine ea, un copil care nu s-a prins ar ramane blocat la usa spitalului */
+      b.sta = 320; b.plans = true; shakeT = 6;
+      /* decalate dupa animal: doua care mananca deodata isi scriau textele
+         unul peste altul si nu se mai citea niciunul */
+      pops.push({x:bo.x, y:bo.y - 36 - i*26, txt:'Hâââm! 🍬', t:90, col:'#E5566A'});
+      if(i === 0) pops.push({x:bo.x, y:bo.y - 96, txt:'Nuuu, nu mânca!', t:104, col:'#7B5CD6'});
+      beep(190, .24, 'sawtooth', .045, 0);
+      break;
+    }
+  }
+
   /* --- peretele se prabuseste in spatele ei --- */
   if(L.collapseX && !L.collapsed && p.x > L.collapseX){
     L.collapsed = true; shakeT = 46;
@@ -1936,6 +2063,17 @@ function step(){
     arrived = false;
     gateHold(L.goalX + 20, bitMsg, L.groundY - 110);
   }
+  /* La spital nu intra fara toate animalutele bolnave. */
+  if(arrived && L.bolnavi.length){
+    const cuEa = L.bolnavi.filter(b => b.sta === 0 && Math.abs(b.x - (p.x + p.w/2)) < 260).length;
+    if(cuEa < L.bolnavi.length){
+      arrived = false;
+      gateHold(L.goalX + 20,
+               'Mai adu animăluțele (' + cuEa + ' din ' + L.bolnavi.length + ')',
+               L.groundY - 160);
+    }
+  }
+
   /* Porcul nu vine pana nu are tot alaiul de cocosi. */
   if(arrived && L.roostersNeeded && roostersGot < L.roostersNeeded){
     arrived = false;
@@ -1951,6 +2089,7 @@ function step(){
     else if(L.after === 'pig')      showPig();
     else if(L.after === 'candy')    showCandy();
     else if(L.after === 'arma')     showArma();
+    else if(L.after === 'doctor')   showDoctor();
     else if(L.after === 'salon')  showSalon();
     else if(L.after === 'fairy')  showFairy();
     else if(L.after === 'castle') showCastle();
@@ -2737,6 +2876,158 @@ function drawLog(L, bl){
   g.restore();
 }
 
+/* Animalutul bolnav: verzui, cu pete, ochii cazuti si o lacrima cand plange.
+   Cand sta jos se turteste si isi tine burtica. */
+function drawBolnav(b){
+  const jos = b.sta > 0;
+  g.save(); g.translate(b.x, b.y + (jos ? 8 : 0));
+  g.lineWidth = 2.5; g.strokeStyle = INK; g.lineJoin = 'round';
+  const w = 40, h = jos ? 30 : 36;
+
+  /* picioruse */
+  g.fillStyle = '#7FA88A';
+  for(const px of [-11, 4]){
+    const ph = jos ? 4 : 5 + Math.abs(Math.sin(b.t * 2.4 + (px < 0 ? 0 : 1.6))) * 5;
+    rr(g, px, h/2 - 3, 7, ph, 3); g.fill(); g.stroke();
+  }
+
+  /* corp de jeleu, dar palit */
+  g.beginPath();
+  g.moveTo(-w/2 + 3, h/2 - 2);
+  g.quadraticCurveTo(-w/2 + 1, -h/2 - 6, 0, -h/2 - 6);
+  g.quadraticCurveTo(w/2 - 1, -h/2 - 6, w/2 - 3, h/2 - 2);
+  g.closePath();
+  const gr = g.createLinearGradient(0, -h/2, 0, h/2);
+  gr.addColorStop(0, ['#C9DCC6','#CFD3E8','#DCD2C0'][b.hue]);
+  gr.addColorStop(1, ['#8FB295','#A6A8C8','#B8AA8E'][b.hue]);
+  g.fillStyle = gr; g.fill(); g.stroke();
+
+  /* pete de la prea multe dulciuri — cate una pentru fiecare bomboana mancata */
+  g.fillStyle = 'rgba(229,86,106,.5)';
+  for(let i = 0; i < Math.min(b.mancate, 5); i++){
+    g.beginPath();
+    g.arc(-13 + i*7, -2 + ((i % 2) ? 7 : -6), 3.6, 0, 7); g.fill();
+  }
+
+  /* ochi cazuti */
+  for(const ex of [-8, 8]){
+    g.beginPath(); g.arc(ex, -9, 6, 0, 7);
+    g.fillStyle = '#FFF7EC'; g.fill(); g.lineWidth = 2.2; g.stroke();
+    g.beginPath(); g.arc(ex, -7.5, 2.5, 0, 7); g.fillStyle = INK; g.fill();
+    /* pleoapa, ca sa para obosit */
+    g.strokeStyle = INK; g.lineWidth = 2.2;
+    g.beginPath(); g.moveTo(ex - 6, -13); g.lineTo(ex + 5, -11); g.stroke();
+  }
+
+  /* lacrima */
+  if(b.plans || jos){
+    const t = (tick * 0.05 + b.x * 0.01) % 1;
+    g.beginPath();
+    g.moveTo(-9, -4 + t*16); g.quadraticCurveTo(-6, -1 + t*16, -9, 2 + t*16);
+    g.quadraticCurveTo(-12, -1 + t*16, -9, -4 + t*16);
+    g.closePath();
+    g.fillStyle = '#7FD0F0'; g.fill();
+    g.lineWidth = 1.4; g.strokeStyle = 'rgba(46,36,56,.5)'; g.stroke();
+  }
+
+  /* gurita trista */
+  g.lineWidth = 2.4; g.strokeStyle = INK;
+  g.beginPath(); g.moveTo(-5, 8); g.quadraticCurveTo(0, 3, 5, 8); g.stroke();
+
+  /* labuta pe burtica */
+  if(jos){
+    g.beginPath(); g.arc(9, 4, 5, 0, 7);
+    g.fillStyle = '#7FA88A'; g.fill(); g.stroke();
+  }
+  g.restore();
+}
+
+/* Bomboana de pe jos — cea pe care ea trebuie sa o ia inaintea lor. */
+function drawBomboana(bo){
+  const b = Math.sin(tick * 0.07 + bo.x * 0.02) * 1.6;
+  g.save(); g.translate(bo.x, bo.y + b);
+  g.lineWidth = 2.2; g.strokeStyle = INK; g.lineJoin = 'round';
+  g.beginPath(); g.ellipse(0, 0, 9, 7, 0, 0, 7);
+  g.fillStyle = '#F2545B'; g.fill(); g.stroke();
+  g.fillStyle = '#FFB6C6';
+  for(const sx of [-1, 1]){
+    g.beginPath();
+    g.moveTo(sx*8, -2); g.lineTo(sx*16, -6); g.lineTo(sx*14, 0); g.lineTo(sx*16, 6);
+    g.closePath(); g.fill(); g.stroke();
+  }
+  g.beginPath(); g.ellipse(-2.5, -2, 2.6, 1.8, -0.5, 0, 7);
+  g.fillStyle = 'rgba(255,255,255,.7)'; g.fill();
+  g.restore();
+}
+
+/* Fructul care le face bine. */
+function drawFruct(fr){
+  const b = Math.sin(tick * 0.06 + fr.x * 0.015) * 2;
+  g.save(); g.translate(fr.x, fr.y + b);
+  g.lineWidth = 2.3; g.strokeStyle = INK; g.lineJoin = 'round';
+  g.beginPath();
+  g.moveTo(0, -6);
+  g.bezierCurveTo(-13, -12, -12, 10, 0, 9);
+  g.bezierCurveTo(12, 10, 13, -12, 0, -6);
+  g.closePath();
+  g.fillStyle = '#E5566A'; g.fill(); g.stroke();
+  g.strokeStyle = '#6B4A32'; g.lineWidth = 2.4;
+  g.beginPath(); g.moveTo(0, -7); g.lineTo(1, -14); g.stroke();
+  g.beginPath();
+  g.moveTo(1, -13); g.quadraticCurveTo(10, -18, 9, -11);
+  g.quadraticCurveTo(4, -9, 1, -13);
+  g.closePath(); g.fillStyle = '#5FC98B'; g.fill();
+  g.lineWidth = 1.6; g.strokeStyle = INK; g.stroke();
+  g.beginPath(); g.ellipse(-4, -2, 2.4, 3.4, -0.4, 0, 7);
+  g.fillStyle = 'rgba(255,255,255,.6)'; g.fill();
+  g.restore();
+}
+
+/* Strada spre spital. */
+function drawTown(L){
+  const sky = g.createLinearGradient(0, 0, 0, L.groundY);
+  sky.addColorStop(0, '#BFE3F5'); sky.addColorStop(1, '#E7F2E4');
+  g.fillStyle = sky; g.fillRect(0, 0, W, L.groundY);
+
+  g.fillStyle = 'rgba(255,255,255,.8)';
+  for(let i = -1; i < 7; i++){
+    const x = i*270 - ((cam*0.2) % 270);
+    puff(g, x + 70, 72 + ((i*47) % 40), 30);
+  }
+
+  /* blocuri in departare */
+  const far = cam * 0.4;
+  for(let i = -1; i < 13; i++){
+    const x = i*250 - (far % 250);
+    const h = 150 + ((i*83) % 110);
+    g.fillStyle = ['rgba(150,168,196,.55)','rgba(176,164,196,.5)','rgba(158,184,180,.5)'][((i%3)+3)%3];
+    rr(g, x, L.groundY - h, 150, h, 6); g.fill();
+    g.fillStyle = 'rgba(255,247,236,.6)';
+    for(let r = 0; r < Math.floor(h/44); r++)
+      for(let c = 0; c < 3; c++)
+        g.fillRect(x + 18 + c*44, L.groundY - h + 20 + r*44, 22, 24);
+  }
+
+  /* copaci langa drum */
+  const near = cam * 0.72;
+  for(let i = -1; i < 16; i++){
+    const x = i*230 - (near % 230);
+    g.strokeStyle = 'rgba(107,74,50,.75)'; g.lineWidth = 9; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(x, L.groundY); g.lineTo(x, L.groundY - 66); g.stroke();
+    g.lineCap = 'butt';
+    g.fillStyle = 'rgba(95,201,139,.7)';
+    puff(g, x, L.groundY - 86, 30);
+  }
+
+  /* trotuar si sosea */
+  g.fillStyle = '#D9D3C6'; g.fillRect(0, L.groundY, W, H - L.groundY);
+  g.fillStyle = '#B9B2A4'; g.fillRect(0, L.groundY + 30, W, H - L.groundY - 30);
+  g.fillStyle = '#FFF7EC';
+  const pas = 90, off = (cam * 1) % pas;
+  for(let x = -off; x < W; x += pas) g.fillRect(x, L.groundY + 54, 46, 7);
+  g.fillStyle = INK; g.fillRect(0, L.groundY - 4, W, 4);
+}
+
 function drawBubbles(){
   for(const b of bubbles){
     g.beginPath(); g.arc(b.x, b.y, b.r, 0, 7);
@@ -2878,6 +3169,7 @@ function drawCandy(L){
 function drawBackdrop(L){
   if(L.theme === 'sky')    return drawSky(L);
   if(L.theme === 'candy')  return drawCandy(L);
+  if(L.theme === 'town')   return drawTown(L);
   if(L.theme === 'forest') return drawForest(L);
   if(L.theme === 'cave')   return drawCave(L);
   if(L.theme === 'water')  return drawWater(L);
@@ -3186,6 +3478,15 @@ function drawGoal(L){
   g.beginPath(); g.arc(x + 88, y - 60, 4, 0, 7); g.fillStyle = COIN; g.fill(); g.stroke();
   rr(g, x - 6, y - 132, 38, 84, 6); g.fillStyle = '#BFE7DE'; g.fill(); g.stroke();
   rr(g, x + 108, y - 132, 38, 84, 6); g.fill(); g.stroke();
+  if(L.theme === 'town'){
+    /* crucea de spital, ca sa se vada de departe unde trebuie duse */
+    g.save(); g.translate(x + 70, y - 254);
+    g.beginPath(); g.arc(0, 0, 26, 0, 7);
+    g.fillStyle = '#FFF7EC'; g.fill(); g.lineWidth = 2.6; g.strokeStyle = INK; g.stroke();
+    g.fillStyle = '#E5566A';
+    g.fillRect(-5, -16, 10, 32); g.fillRect(-16, -5, 32, 10);
+    g.restore();
+  }
   g.textAlign = 'left'; g.textBaseline = 'alphabetic';
 }
 
@@ -3264,11 +3565,15 @@ function drawHUD(L){
   let want = null, wantKind = null;
   if(L.bitsNeeded && bitsGot < L.bitsNeeded)              wantKind = L.bitKind;
   else if(L.roostersNeeded && roostersGot < L.roostersNeeded && L.baked) wantKind = 'rooster';
+  else if(L.bolnavi.some(b => b.sta > 0 || Math.abs(b.x - (player.x + player.w/2)) > 230))
+    wantKind = 'bolnav';
   if(wantKind){
-    const pool = wantKind === 'rooster' ? L.roosters : L.bits;
+    const pool = wantKind === 'rooster' ? L.roosters : wantKind === 'bolnav' ? L.bolnavi : L.bits;
     let best = null, bd = 1e9;
     for(const b of pool){
-      if(wantKind === 'rooster' ? b.follow : b.got) continue;
+      if(wantKind === 'rooster' ? b.follow
+         : wantKind === 'bolnav' ? (b.sta === 0 && Math.abs(b.x - (player.x + player.w/2)) <= 230)
+         : b.got) continue;
       const d = Math.abs(b.x - (player.x + player.w/2));
       if(d < bd){ bd = d; best = b; }
     }
@@ -3282,7 +3587,12 @@ function drawHUD(L){
       g.lineWidth = 2.6; g.strokeStyle = INK; g.stroke();
       g.restore();
       g.save(); g.translate(ax, ay + 30);
-      if(wantKind === 'rooster'){
+      if(wantKind === 'bolnav'){
+        g.beginPath(); g.arc(0, 0, 10, 0, 7); g.fillStyle = '#8FB295'; g.fill();
+        g.lineWidth = 2.2; g.strokeStyle = INK; g.stroke();
+        g.fillStyle = '#7FD0F0';
+        g.beginPath(); g.arc(3, 4, 2.6, 0, 7); g.fill();
+      }else if(wantKind === 'rooster'){
         g.beginPath(); g.ellipse(0, 2, 9, 8, 0, 0, 7); g.fillStyle = '#FFF7EC'; g.fill();
         g.lineWidth = 2.2; g.strokeStyle = INK; g.stroke();
         g.beginPath(); g.moveTo(-4, -6); g.lineTo(0, -13); g.lineTo(4, -6); g.closePath();
@@ -3295,6 +3605,35 @@ function drawHUD(L){
         g.lineWidth = 2.2; g.strokeStyle = INK; g.stroke();
       }
       g.restore();
+    }
+  }
+
+  /* animalutele bolnave: cate sunt cu ea, si cate fructe are in buzunar */
+  if(L.bolnavi.length){
+    for(let i = 0; i < L.bolnavi.length; i++){
+      const b = L.bolnavi[i];
+      const cuEa = b.sta === 0 && Math.abs(b.x - (player.x + player.w/2)) < 260;
+      g.save(); g.translate(30 + i*30, 68);
+      g.beginPath(); g.arc(0, 0, 10, 0, 7);
+      g.fillStyle = cuEa ? '#8FB295' : 'rgba(255,255,255,.28)'; g.fill();
+      g.lineWidth = 2.2; g.strokeStyle = INK; g.stroke();
+      if(!cuEa){
+        g.fillStyle = '#7FD0F0';
+        g.beginPath(); g.arc(3, 3, 2.4, 0, 7); g.fill();
+      }
+      g.restore();
+    }
+    if(fructeAvute > 0){
+      g.save(); g.translate(34 + L.bolnavi.length*30, 68);
+      g.beginPath();
+      g.moveTo(0, -4); g.bezierCurveTo(-9, -8, -8, 7, 0, 6);
+      g.bezierCurveTo(8, 7, 9, -8, 0, -4); g.closePath();
+      g.fillStyle = '#E5566A'; g.fill(); g.lineWidth = 2; g.strokeStyle = INK; g.stroke();
+      g.fillStyle = INK; g.font = '700 14px Fredoka, sans-serif';
+      g.textAlign = 'left'; g.textBaseline = 'middle';
+      g.fillText('x' + fructeAvute, 12, 0);
+      g.restore();
+      g.textAlign = 'left'; g.textBaseline = 'alphabetic';
     }
   }
 
@@ -3390,7 +3729,7 @@ function render(){
     g.fillStyle = L.theme === 'market' ? '#F7E4CC' : L.theme === 'forest' ? '#E9F5DA'
                 : L.theme === 'cave'   ? '#6A5A8E' : L.theme === 'river' ? '#C79A63'
                 : L.theme === 'pizza'  ? '#F3D9B8' : L.theme === 'candy' ? '#FFE3EF'
-                : '#FFF0F6'; g.fill();
+                : L.theme === 'town'   ? '#E6EEF6' : '#FFF0F6'; g.fill();
     g.lineWidth = 2.6; g.strokeStyle = INK; g.stroke();
     rr(g, pl.x + 6, pl.y + pl.h, pl.w - 12, 10, 4);
     g.fillStyle = 'rgba(46,36,56,.18)'; g.fill();
@@ -3398,6 +3737,9 @@ function render(){
   for(const s of L.spikes){ if(s.x < cam + W + 60 && s.x + s.w > cam - 60) drawSpikes(s); }
   for(const v of L.whirls){ if(v.x > cam - 160 && v.x < cam + W + 160) drawWhirl(v); }
   for(const bl of L.logs){ if(bl.x + bl.w > cam - 90 && bl.x < cam + W + 90) drawLog(L, bl); }
+  for(const bo of L.bomboane){ if(!bo.got && !bo.mancata && bo.x > cam - 60 && bo.x < cam + W + 60) drawBomboana(bo); }
+  for(const fr of L.fructe){ if(!fr.got && fr.x > cam - 60 && fr.x < cam + W + 60) drawFruct(fr); }
+  for(const b of L.bolnavi){ if(b.x > cam - 90 && b.x < cam + W + 90) drawBolnav(b); }
   for(const c of L.coins){ if(!c.got && c.x > cam - 40 && c.x < cam + W + 40) drawCoin(c.x, c.y, tick*0.08 + c.x*0.02); }
   for(const m of L.monsters){ if(!m.dead && m.x < cam + W + 90 && m.x + m.w > cam - 90) drawMonster(m); }
   for(const mu of L.mushrooms){ if(!mu.got && mu.x > cam - 60 && mu.x < cam + W + 60) drawMushroom(mu, tick*0.06 + mu.x*0.01); }
@@ -3472,7 +3814,7 @@ function render(){
 }
 
 /* ---------------- alegerea nivelului ---------------- */
-const LEVEL_EMOJI = ['🛒','🛍️','🌲','☁️','🦇','🐢','🛝','🍕','🐊','🍭'];
+const LEVEL_EMOJI = ['🛒','🛍️','🌲','☁️','🦇','🐢','🛝','🍕','🐊','🍭','🏥'];
 
 /* Cand sari direct la un nivel, ii dam ce ar fi trebuit sa aiba pana acolo:
    aripi de la vrajitor, torta de la foc, porcul de la cocosi. */
@@ -3480,7 +3822,9 @@ function setupLookFor(i){
   look.fairy = i >= 3;
   look.torch = i >= 5 && i <= 8;
   look.pizza = false;
-  look.arma  = null;   /* arma se ia abia la capatul lumii dulciurilor */
+  /* arma se ia la capatul lumii dulciurilor; in nivelul 11 o are deja, ciugulita */
+  look.arma  = i >= 10 ? (owned[look.arma] ? look.arma : 'acadea') : null;
+  look.fructe = false;
   if(i >= 8 && !owned[look.pig]) look.pig = 'porcRoz';
 }
 
@@ -3533,7 +3877,8 @@ function showIntro(){
   openPanel(
     '<p class="eyebrow">Un joc gândit de Anabelle</p>' +
     '<h1>Aventura Anabellei</h1>' +
-    '<p class="lead">Zece niveluri: strânge bănuți prin <b>supermarket</b> și cumpără-ți hăinuțe la croitorie, treci prin <b>galerie</b> până la salon, taie <b>pădurea</b> până la vrăjitor — el te face zână — <b>zboară prin nori</b> la castelul prințesei, intră în <b>peștera</b> cu lilieci, fă un foc, <b>înoată</b> până la țestoasa vorbitoare, alunecă pe <b>toboganul fermecat</b> drept într-o <b>pizzerie</b>, fă o pizza ca să momești cocoșii, ia-ți un <b>porc</b> și coboară <b>râul</b> pe placa de surf, sărind peste crocodili, apoi intră în <b>lumea dulciurilor</b>: sari peste crăpăturile de bomboană, fugi de monștrii cu mustață de vată de zahăr și alege-ți o <b>armă din dulce</b> pentru aventurile care vin.</p>' +
+    '<p class="lead">Unsprezece niveluri: strânge bănuți prin <b>supermarket</b> și cumpără-ți hăinuțe la croitorie, treci prin <b>galerie</b> până la salon, taie <b>pădurea</b> până la vrăjitor — el te face zână — <b>zboară prin nori</b> la castelul prințesei, intră în <b>peștera</b> cu lilieci, fă un foc, <b>înoată</b> până la țestoasa vorbitoare, alunecă pe <b>toboganul fermecat</b> drept într-o <b>pizzerie</b>, fă o pizza ca să momești cocoșii, ia-ți un <b>porc</b> și coboară <b>râul</b> pe placa de surf, sărind peste crocodili, apoi intră în <b>lumea dulciurilor</b>: sari peste crăpăturile de bomboană, fugi de monștrii cu mustață de vată de zahăr și alege-ți o <b>armă din dulce</b> — din care niște monstruleți o să ronțăie, o să se ' +
+    'îmbolnăvească, și o să trebuiască <b>duși la spital</b>.</p>' +
     '<div class="keys">' +
       '<span class="key">◀ ▶ mergi</span>' +
       '<span class="key">▲ / Spațiu sari — de două ori, sari mai sus</span>' +
@@ -3618,7 +3963,13 @@ function showShop(keep){
 function startLevel(i){
   levelIdx = i; resetPlayer();
   cam = 0; camY = 0; pops = []; balls = []; bubbles = [];
-  bitsGot = 0; roostersGot = 0; boos = 0;
+  bitsGot = 0; roostersGot = 0; boos = 0; fructeAvute = 0; mancateTot = 0;
+  LEVELS[i].bomboane.forEach(b => { b.got = false; b.mancata = false; });
+  LEVELS[i].fructe.forEach(f => f.got = false);
+  LEVELS[i].bolnavi.forEach((b, k) => {
+    b.sta = 0; b.plans = false; b.mancate = 0; b.iute = 0;
+    b.x = 150 + k*54; b.y = LEVELS[i].groundY - 30;
+  });
   LEVELS[i].collapsed = false; LEVELS[i].baked = false;
   (LEVELS[i].gaps || []).forEach(g => { g.caderi = 0; g.pod = false; });
   (LEVELS[i].pits || []).forEach(p => { p.caderi = 0; p.pod = false; });
@@ -3831,8 +4182,64 @@ function showArma(keep){
     '<p class="tiny">Poți schimba oricând între armele pe care le ai deja.</p>'
   );
   paintPreviews(); wireShop();
-  document.getElementById('gata').onclick = showEnd;
+  document.getElementById('gata').onclick = showMonstri;
   if(!keep) sfx.win();
+}
+
+function showMonstri(){
+  state = STATE.STORY;
+  openPanel(
+    '<p class="eyebrow">N-ai apucat să faci doi pași</p>' +
+    '<h2>Hei! Cine roade din arma mea? 🍬</h2>' +
+    '<p class="lead">Cum ai plecat de la raft, au ieșit dintre tufe trei ' +
+    '<b>monstruleți mici</b>. Ție nu ți-au făcut nimic — s-au repezit la ' +
+    '<b>armă</b>, că era din dulciuri, și au ronțăit din ea până i-ai oprit.</p>' +
+    '<p class="lead">Acum stau pe jos și se vaită. Îi doare burtica, s-au făcut ' +
+    'verzui la față și plâng. Nu e de glumă cu atâta zahăr dintr-o dată.</p>' +
+    '<p class="lead">Trebuie <b>duși la spital</b>. Vin după tine, dar merg încet — ' +
+    'și, ce e mai rău, <b>mănâncă orice bomboană le iese în cale</b>. Pe drumul ' +
+    'până la spital sunt bomboane peste tot pe jos.</p>' +
+    '<button class="btn" id="spital" type="button">Hai la spital! 🏥</button>' +
+    '<p class="tiny"><b>Fugi înainte și strânge tu bomboanele</b> înainte să ajungă ele acolo. ' +
+    'Dacă apucă să mănânce vreuna, se așază pe jos și plâng — trebuie să te întorci după ele. ' +
+    'Fructele de pe drum le fac bine: ia-le și dă-le lor.</p>'
+  );
+  document.getElementById('spital').onclick = () => startLevel(10);
+  sfx.win();
+}
+
+function showDoctor(){
+  state = STATE.STORY;
+  const n = LEVELS[10].bolnavi.length;
+  const usor  = mancateTot === 0;
+  const greu  = mancateTot >= 6;
+  openPanel(
+    '<p class="eyebrow">Cabinetul doctorului</p>' +
+    '<h2>„Au diabet." 🩺</h2>' +
+    '<p class="lead">Doctorul se uită la toți ' + n + ', apoi își scoate ochelarii. ' +
+    '„Au mâncat prea multe dulciuri. Asta se numește <b>diabet</b>: corpul nu mai ' +
+    'știe ce să facă cu atâta zahăr, și de-aia îi doare burtica și sunt obosiți."</p>' +
+    '<p class="lead">Monstruleții încep să <b>plângă</b> toți odată. Lacrimile le curg ' +
+    'până pe labe. „Noi credeam că dulciurile sunt doar bune…"</p>' +
+    '<p class="lead">' +
+      (usor ? 'Doctorul zâmbește: „Dar ați ajuns repede, și pe drum n-ați mai mâncat nimic. ' +
+              'Cu <b>fructe, apă și mișcare</b>, în câteva zile sunteți ca noi." ' +
+              'Ai avut grijă de ei tot drumul.'
+       : greu ? 'Doctorul oftează: „Pe drum au mai apucat <b>' + mancateTot + ' bomboane</b>. ' +
+                'O să stea aici mai multe zile și o să mănânce numai <b>fructe și legume</b> ' +
+                'până le trece."'
+       : 'Doctorul dă din cap: „Pe drum au mai apucat <b>' + mancateTot + ' bomboane</b>, ' +
+         'dar nu e grav. Câteva zile cu <b>fructe și apă</b> și se fac bine."') +
+    '</p>' +
+    '<p class="lead">Apoi le dă la fiecare câte un măr. Monstruleții se opresc din plâns, ' +
+    'ronțăie mărul, și unul zice cu gura plină: „E bun și ăsta!"</p>' +
+    '<p class="lead">Doctorul se întoarce spre tine: „Arma ta rămâne armă — dar ' +
+    '<b>nu se mănâncă</b>. Ține și o <b>cutie cu fructe</b>, ca să ai ce le da data viitoare."</p>' +
+    '<button class="btn" id="gata2" type="button">Mulțumim, domnule doctor! 🍎</button>' +
+    '<p class="tiny">Dulciurile nu sunt otravă — dar nici mâncare. Puține, și rar.</p>'
+  );
+  document.getElementById('gata2').onclick = () => { look.fructe = true; showEnd(); };
+  sfx.win();
 }
 
 function showEnd(){
@@ -3844,15 +4251,20 @@ function showEnd(){
         arma = byId(ARME, look.arma);
   openPanel(
     '<p class="eyebrow">Sfârșitul aventurii — deocamdată</p>' +
-    '<h1>Uraaa, ai armă din dulce!</h1>' +
+    '<h1>Uraaa, ai dus toți monstruleții la spital!</h1>' +
     '<canvas id="fin-prev" width="220" height="270" style="width:16cqw;height:19.6cqw;margin-top:1.4cqw"></canvas>' +
     '<p class="lead">Ai fost curajoasă cu liliecii, ai făcut focul singură, ' +
       'te-ai împrietenit cu o țestoasă vorbitoare, ai făcut pizza ca să momești cocoșii, ' +
       'ți-ai luat un porc, ai coborât tot râul pe placa de surf sărind peste crocodili, ' +
       'și ai trecut lumea dulciurilor din capăt în capăt — peste crăpăturile de bomboană, ' +
       'pe lângă monștrii cu mustață de vată.</p>' +
-    '<p class="lead">Acum ai și <b>' + arma.name + '</b>. ' +
-      'Ține-o bine: în aventura următoare o să ai monștri de bătut.</p>' +
+    '<p class="lead">Ai și <b>' + arma.name + '</b>, și o cutie cu fructe de la doctor. ' +
+      'Ține-le bine: în aventura următoare o să ai monștri de bătut — și de hrănit ' +
+      'cu ceva sănătos.</p>' +
+    '<p class="lead">Monstruleții au mâncat pe drum <b>' + mancateTot + '</b> ' +
+      (mancateTot === 1 ? 'bomboană' : 'bomboane') + '. ' +
+      (mancateTot === 0 ? 'Niciuna! Le-ai luat tu pe toate de pe jos.'
+                        : 'Data viitoare poate le iei pe toate înaintea lor.') + '</p>' +
     '<p class="lead">' + o.name + ' · ' + h.name + ' · ' + m.name + ' · ' + wg.name +
       '<br>Ți-au mai rămas <b>' + purse + '</b> bănuți în buzunar.</p>' +
     '<button class="btn" id="again" type="button">Încă o dată!</button>'

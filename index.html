@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Un platformer în unsprezece niveluri gândit de Anabelle: supermarket, croitorie, salon, vrăjitorul care o face zână, zborul la castelul prințesei, peștera cu lilieci, râul cu țestoasa vorbitoare, toboganul fermecat, pizzeria cu cocoși, râul cu crocodili lumea dulciurilor cu monștri cu mustață de vată și drumul spre spital.">
+<meta name="description" content="Un platformer în douăsprezece niveluri gândit de Anabelle: supermarket, croitorie, salon, vrăjitorul care o face zână, zborul la castelul prințesei, peștera cu lilieci, râul cu țestoasa vorbitoare, toboganul fermecat, pizzeria cu cocoși, râul cu crocodili lumea dulciurilor cu monștri cu mustață de vată, drumul spre spital și raiul cu concertul îngerașilor.">
 <meta name="theme-color" content="#FDF3E3">
 
 <link rel="manifest" href="manifest.webmanifest">
@@ -391,7 +391,8 @@ const sfx = {
   jump2(){ beep(560,.1,'triangle',.05,0); beep(840,.1,'triangle',.04,.06); },
   fire(){ beep(720,.06,'sawtooth',.035,0); beep(420,.09,'sawtooth',.03,.05); },
   power(){ [392,523,659,784,1047].forEach((f,i)=>beep(f,.13,'square',.05,i*.07)); },
-  pupic(){ beep(880,.07,'sine',.05,0); beep(1240,.08,'sine',.045,.07); beep(1560,.13,'sine',.04,.15); }
+  pupic(){ beep(880,.07,'sine',.05,0); beep(1240,.08,'sine',.045,.07); beep(1560,.13,'sine',.04,.15); },
+  boing(){ beep(300,.12,'sine',.05,0); beep(560,.16,'sine',.04,.06); }
 };
 
 /* ---------------- garderoba ---------------- */
@@ -972,7 +973,7 @@ function buildLevel(cfg){
   /* Nimic nu poate fi mai sus decat sare fetita: coboram rafturile prea inalte
      pana cand fiecare are un sprijin (solul sau un raft mai jos) la indemana. */
   const MAX_RISE = 124, MAX_GAP = 170;
-  for(let pass = 0; pass < 5; pass++){
+  for(let pass = 0; pass < (cfg.noRise ? 0 : 5); pass++){
     L.platforms.forEach((a, i) => {
       let support = L.groundY;
       L.platforms.forEach((b, j) => {
@@ -1097,6 +1098,180 @@ function buildSlide(cfg){
     L.coins.push(...coinArc(mid, slideY(L, mid) - 74, 5, (g.b - g.a) * 0.42));
   });
   return L;
+}
+
+/* Nivelul 12, cerut de Anabelle pe 2026-10-11: dupa spital, monstruletii si
+   fetita ajung in rai. Fara pamant, doar norisori; monstruletii sunt acum
+   ingerasi. Spre final incepe concertul lor, cu tot felul de lumini.
+
+   Regulile care tin nivelul in picioare, ca sa nu devina o capcana:
+   - cine cade pe norul mare de jos e aruncat inapoi sus, fara sa piarda nimic
+     (nu exista inimi in nivelul asta);
+   - norisorii sunt asezati ca orice cadere sa fie urmata de o aterizare:
+     din aruncare ajunge pana la inaltimea de 254, iar cel mai de sus nor e la 298;
+   - ingerasii nu ating si nu opresc pe nimeni: sunt doar de privit;
+   - nivelul se termina cand ea STA pe scena, nu cand trece pe langa ea. */
+const BOUNCE_V = 16.5;
+/* [x, y, latime, deriva?]  deriva = [cat se misca pe x, cat pe y, viteza] */
+const NORI = [
+  [30,392,290],[410,370,150],[690,346,150],[960,322,140],[1210,350,160],
+  [1470,328,150,[36,0,.018]],[1720,362,150],[2000,336,140,[0,28,.020]],
+  [2260,352,160],[2530,318,150],[2780,346,140,[40,0,.016]],[3020,380,150],
+  [3290,352,160],[3560,322,150,[0,24,.021]],[3830,350,140],[4090,380,150],
+  [4340,350,150,[30,0,.019]],[4590,372,170],
+  [4880,370,420]                                  /* scena */
+];
+/* ingerasii care plutesc pe cer, [x, y]; trei stau chiar deasupra unor norisori */
+const INGERI_LIBERI = [[800,190],[1030,258],[1250,170],[1650,230],[2150,160],[2500,210],
+                       [2605,254],[2950,180],[3370,288],[3850,165],[4150,255],[4300,215],[4700,180]];
+
+function buildHeaven(){
+  const L = buildLevel({
+    name:'Nivelul 12', sub:'Raiul cu îngerași', theme:'heaven', len:5500, goalX:5090,
+    goalLabel:'CONCERT', after:'concert', noRise:true,
+    platforms:NORI.map(c => [c[0], c[1], c[2]]),
+    spikes:[], monsters:[], mushrooms:[]
+  });
+  L.bounce = true;
+  L.stage = L.platforms[L.platforms.length - 1];
+  L.coins = [];
+  L.platforms.forEach((pl, i) => {
+    const d = NORI[i][3];
+    pl.x0 = pl.x; pl.y0 = pl.y;
+    pl.ax = d ? d[0] : 0; pl.ay = d ? d[1] : 0; pl.sp = d ? d[2] : 0; pl.ph = i * 1.7;
+    if(d || pl === L.stage) return;               /* banutii nu calatoresc cu norul */
+    const n = pl.w >= 170 ? 4 : 3;
+    L.coins.push(...coinRow(pl.x + (pl.w - (n - 1) * 40) / 2, pl.y - 34, n));
+  });
+  L.ingeri = [];
+  for(let k = 0; k < 3; k++) L.ingeri.push({ co:k, hue:k });          /* cei trei de la spital */
+  INGERI_LIBERI.forEach((q, k) => L.ingeri.push({ co:-1, bx:q[0], by:q[1], hue:(k + 1) % 3 }));
+  resetHeaven(L);
+  return L;
+}
+
+function resetHeaven(L){
+  L.platforms.forEach(pl => { pl.x = pl.x0; pl.y = pl.y0; });
+  L.bounces = 0; L.bounceT = 0; L.bounceX = 0;
+  L.ingeri.forEach((a, i) => {
+    a.t = i * 0.9; a.wave = 0;
+    a.x = a.co >= 0 ? 90 + a.co * 40 : a.bx;
+    a.y = a.co >= 0 ? 320 : a.by;
+  });
+}
+
+/* Norisorii care plutesc: pozitia lor e o functie de `tick`, deci nu se
+   desincronizeaza. Daca ea sta pe unul, merge cu el. */
+function driftClouds(L){
+  const p = player;
+  for(const pl of L.platforms){
+    if(!pl.sp) continue;
+    const nx = pl.x0 + Math.sin(tick * pl.sp + pl.ph) * pl.ax;
+    const ny = pl.y0 + Math.sin(tick * pl.sp + pl.ph) * pl.ay;
+    if(p.ride === pl){
+      p.x = clamp(p.x + (nx - pl.x), 0, L.len - p.w);
+      p.y += ny - pl.y;
+    }
+    pl.x = nx; pl.y = ny;
+  }
+}
+
+/* Ingerasii nu se ciocnesc de nimic: cei trei de la spital se invart in jurul
+   ei, ceilalti plutesc pe loc si fac cu mana cand e ea aproape. */
+function stepIngeri(L){
+  const p = player, pcx = p.x + p.w / 2;
+  for(const a of L.ingeri){
+    a.t += 0.06;
+    if(a.co >= 0){
+      const ang = a.t * 0.55 + a.co * 2.1;
+      const tx = pcx + Math.cos(ang) * 74, ty = Math.min(p.y + 6 + Math.sin(ang * 1.3) * 38, 400);
+      a.x += (tx - a.x) * 0.045; a.y += (ty - a.y) * 0.045;
+      a.wave = Math.sin(a.t * 0.8) > 0.2 ? 1 : 0;
+    }else{
+      a.x = a.bx + Math.sin(a.t * 0.7 + a.bx) * 34;
+      a.y = a.by + Math.sin(a.t + a.bx) * 10;
+      a.wave = Math.abs(a.x - pcx) < 300 ? 1 : 0;
+    }
+  }
+}
+
+function bounceUp(L){
+  const p = player;
+  p.vy = -BOUNCE_V; p.onGround = false; p.boing = true; p.jumps = 2;
+  p.mood = 'wow'; p.moodT = 30;
+  L.bounceT = 26; L.bounceX = p.x + p.w / 2; L.bounces++;
+  sfx.boing();
+  if(L.bounces === 1)
+    pops.push({x:p.x + 14, y:p.y - 30, txt:'Boing! Norul te aruncă înapoi sus', t:120, col:'#7B5CD6'});
+}
+
+/* ---------------- concertul ---------------- */
+const CONCERT_LEN = 1020, BEAT = 20;
+/* Oda bucuriei, doua fraze; [nota, cat tine in timpi] */
+const MELODIE = (() => {
+  const A = [[329.63,1],[329.63,1],[349.23,1],[392,1],[392,1],[349.23,1],[329.63,1],[293.66,1],
+             [261.63,1],[261.63,1],[293.66,1],[329.63,1]];
+  const out = []; let t = 0;
+  const put = n => { out.push([Math.round(t * BEAT), n[0], n[1] * BEAT / 60 * 0.95]); t += n[1]; };
+  A.forEach(put); [[329.63,1.5],[293.66,0.5],[293.66,2]].forEach(put);
+  A.forEach(put); [[293.66,1.5],[261.63,0.5],[261.63,2]].forEach(put);
+  return out;
+})();
+const BAS = [130.81, 196, 174.61, 196];              /* o nota joasa la fiecare patru timpi */
+let melI = 0;
+
+function showConcert(){
+  const L = LEVELS[levelIdx];
+  state = STATE.CONCERT;
+  concertT = 0; melI = 0; confetti = []; notele = []; pops = []; balls = [];
+  cam = L.len - W; camY = 0;
+  player.vx = 0; player.vy = 0; player.face = 1;
+  closePanel();
+}
+
+function stepConcert(){
+  const L = LEVELS[levelIdx], st = L.stage, p = player;
+  concertT++;
+  const T = concertT;
+  /* ea merge incet spre mijlocul scenei */
+  p.x += ((st.x + st.w / 2 - p.w / 2) - p.x) * 0.04;
+  p.y = st.y - p.h;
+  /* melodia incepe dupa ce se aprind luminile */
+  while(melI < MELODIE.length && MELODIE[melI][0] + 100 <= T){
+    const m = MELODIE[melI++];
+    beep(m[1], m[2], 'triangle', 0.06, 0);
+    beep(m[1] * 2, m[2] * 1.6, 'sine', 0.022, 0.02);
+    if(melI % 4 === 1) beep(BAS[(melI >> 2) % BAS.length], 0.9, 'sine', 0.05, 0);
+  }
+  if(T === 780) [523.25, 659.25, 783.99, 1046.5].forEach(f => beep(f, 1.5, 'sine', 0.05, 0));
+  if(T > 60){
+    for(let k = 0; k < 2; k++)
+      if(confetti.length < 240)
+        confetti.push({ x:Math.random() * W, y:-10, vx:(Math.random() - 0.5) * 1.4, vy:1.2 + Math.random() * 1.8,
+                        r:Math.random() * 6, vr:(Math.random() - 0.5) * 0.3, s:3 + Math.random() * 3,
+                        col:'hsl(' + Math.floor(Math.random() * 360) + ',95%,62%)' });
+    if(T === 780 || T === 800)
+      for(let k = 0; k < 60; k++)
+        confetti.push({ x:W / 2 + (Math.random() - 0.5) * 300, y:300, vx:(Math.random() - 0.5) * 9,
+                        vy:-4 - Math.random() * 7, r:0, vr:(Math.random() - 0.5) * 0.4, s:3 + Math.random() * 3,
+                        col:'hsl(' + Math.floor(Math.random() * 360) + ',95%,62%)' });
+  }
+  for(let i = confetti.length - 1; i >= 0; i--){
+    const c = confetti[i];
+    c.x += c.vx; c.y += c.vy; c.vy = Math.min(c.vy + 0.05, 3.2); c.r += c.vr;
+    if(c.y > H + 12) confetti.splice(i, 1);
+  }
+  /* note care plutesc din ingerasii care au ajuns pe scena */
+  if(T > 120 && T % 12 === 0){
+    const i = (T / 12 * 5) % L.ingeri.length | 0, q = ingerAt(L, i, T);
+    notele.push({ x:q.x, y:q.y - 34, vx:(Math.random() - 0.5) * 0.8, vy:-0.9, t:110,
+                  txt:['♪', '♫', '♬'][i % 3], col:'hsl(' + ((T * 4) % 360) + ',95%,70%)' });
+  }
+  for(let i = notele.length - 1; i >= 0; i--){
+    const q = notele[i]; q.x += q.vx; q.y += q.vy; q.t--;
+    if(q.t <= 0) notele.splice(i, 1);
+  }
+  if(T >= CONCERT_LEN) showEnd();
 }
 
 const LEVELS = [
@@ -1249,16 +1424,18 @@ const LEVELS = [
     bomboane:[980,1020,1060,  1480,1526,  1980,2026,2072,  2500,2546,
               2980,3026,3072,  3420,3466],
     fructe:[700, 1300, 1800, 2320, 2820, 3260]
-  })
+  }),
+  buildHeaven()
 ];
 
 /* ---------------- starea jocului ---------------- */
 const STATE = { INTRO:'intro', PLAY:'play', SHOP:'shop', SALON:'salon', FAIRY:'fairy',
                 CASTLE:'castle', STORY:'story', FIRE:'fire', TURTLE:'turtle',
-                PIZZERIA:'pizzeria', PIG:'pig', ARMA:'arma', LEVELS:'levels', END:'end' };
+                PIZZERIA:'pizzeria', PIG:'pig', ARMA:'arma', LEVELS:'levels', CONCERT:'concert', END:'end' };
 
 let state, levelIdx, cam, camY, tick, purse, owned, look, player, pops, shakeT, balls;
 let bitsGot, roostersGot, boos, bubbles, fructeAvute, mancateTot;
+let concertT = 0, confetti = [], notele = [];
 
 function freshGame(){
   state    = STATE.INTRO;
@@ -1279,6 +1456,7 @@ function freshGame(){
     (L.pits || []).forEach(p => { p.caderi = 0; p.pod = false; });
     L.bomboane.forEach(b => { b.got = false; b.mancata = false; });
     L.fructe.forEach(f => f.got = false);
+    if(L.theme === 'heaven') resetHeaven(L);
     L.bolnavi.forEach((b, i) => { b.sta = 0; b.plans = false; b.mancate = 0; b.iute = 0; });
     L.monsters.forEach(m => { m.dead = false; m.boo = false; m.sunk = false; m.sinkT = 0;
                               m.seek = false; m.blocat = false;
@@ -1297,6 +1475,7 @@ function startY(L){
   if(L.mode === 'swim')  return 250;
   if(L.mode === 'slide') return slideY(L, 54) - 54;
   if(L.mode === 'surf')  return waveY(L, 54) - 54;
+  if(L.theme === 'heaven') return L.platforms[0].y - 54;   /* nu e pamant: porneste de pe primul nor */
   return L.groundY - 54;
 }
 function resetPlayer(){
@@ -1306,7 +1485,7 @@ function resetPlayer(){
              invuln:0, walk:0, jumpLock:false,
              jumps:2, superT:0, cool:0,
              mood:'ok', moodT:0, squashT:0, idleT:0, blinkAt:90, pupicT:0,
-             grind:false, grindT:0, falling:false };
+             grind:false, grindT:0, falling:false, ride:null, boing:false };
 }
 
 /* ---------------- input ---------------- */
@@ -1553,6 +1732,10 @@ function step(){
   const swimming = L.mode === 'swim';
   const sliding  = L.mode === 'slide';
   const surfing  = L.mode === 'surf';
+  if(L.theme === 'heaven'){
+    driftClouds(L); stepIngeri(L);
+    if(L.bounceT > 0) L.bounceT--;
+  }
 
   if(sliding || surfing){
     /* Toboganul si raul o duc singure: stanga franeaza, dreapta o zoreste. */
@@ -1570,7 +1753,8 @@ function step(){
   /* Saritura dubla: o data de pe sol, inca o data in aer ca sa ajunga mai sus. */
   if(!flying && !swimming && jump && !p.jumpLock && p.jumps > 0){
     const second = p.jumps === 1;
-    p.vy = second ? -11.8 : -13.0;
+    /* min: o saritura apasata chiar dupa aruncarea de pe norul de jos nu o taie */
+    p.vy = Math.min(p.vy, second ? -11.8 : -13.0);
     p.jumps--; p.onGround = false; p.jumpLock = true;
     second ? sfx.jump2() : sfx.jump();
     if(second){
@@ -1578,7 +1762,7 @@ function step(){
         pops.push({x:p.x + 4 + i*4, y:p.y + p.h, txt:'·', t:22, col:'#BFE7DE'});
     }
   }
-  if(!jump){ p.jumpLock = false; if(!swimming && p.vy < -4.2) p.vy = -4.2; }
+  if(!jump){ p.jumpLock = false; if(!swimming && !p.boing && p.vy < -4.2) p.vy = -4.2; }
 
   /* Bile de foc — doar cat timp e SUPER ANABELLE. */
   const wasOnGround = p.onGround, fellFrom = p.vy;
@@ -1722,11 +1906,13 @@ function step(){
     if(p.onGround) p.jumps = 2;
   }else{
     p.vy = Math.min(p.vy + 0.63, 16);
+    if(p.vy >= 0) p.boing = false;
     p.x = clamp(p.x + p.vx, 0, L.len - p.w);
 
     const prevBottom = p.y + p.h;
     p.y += p.vy;
     p.onGround = false;
+    p.ride = null;
     /* Odata intrata in crapatura, e cazuta: nu se mai prinde de marginea de
        dincolo. Fara asta o crapatura ingusta nu prinde pe nimeni — masurat:
        la 130 de pasi latime ii trebuie 28 de cadre ca sa o traverseze si doar
@@ -1735,12 +1921,14 @@ function step(){
     if(!solidGround(L, p.x + p.w/2) && p.y + p.h > L.groundY + 6) p.falling = true;
     if(!p.falling){
       if(p.y + p.h > L.groundY && solidGround(L, p.x + p.w/2)){
-        p.y = L.groundY - p.h; p.vy = 0; p.onGround = true;
+        p.y = L.groundY - p.h;
+        if(L.bounce) bounceUp(L);          /* raiul: norul de jos o arunca inapoi */
+        else { p.vy = 0; p.onGround = true; }
       }
       if(p.vy > 0){
         for(const pl of L.platforms){
           if(prevBottom <= pl.y + 2 && p.y + p.h >= pl.y && p.x + p.w > pl.x + 3 && p.x < pl.x + pl.w - 3){
-            p.y = pl.y - p.h; p.vy = 0; p.onGround = true; break;
+            p.y = pl.y - p.h; p.vy = 0; p.onGround = true; p.ride = pl.sp ? pl : null; break;
           }
         }
       }
@@ -2094,6 +2282,11 @@ function step(){
   let arrived;
   if(flying)       arrived = p.y < L.castleY;
   else if(sliding || surfing) arrived = p.x > L.len - 90;
+  else if(L.stage){
+    /* in rai nu ajunge trecand pe langa scena: trebuie sa STEA pe ea */
+    const st = L.stage, cx = p.x + p.w/2;
+    arrived = p.onGround && Math.abs(p.y + p.h - st.y) < 2 && cx > st.x + 30 && cx < st.x + st.w - 30;
+  }
   else             arrived = p.x + p.w > L.goalX + 20;
 
   /* Focul nu se aprinde fara toate vreascurile. */
@@ -2128,6 +2321,7 @@ function step(){
     else if(L.after === 'candy')    showCandy();
     else if(L.after === 'arma')     showArma();
     else if(L.after === 'doctor')   showDoctor();
+    else if(L.after === 'concert')  showConcert();
     else if(L.after === 'salon')  showSalon();
     else if(L.after === 'fairy')  showFairy();
     else if(L.after === 'castle') showCastle();
@@ -2928,9 +3122,20 @@ function drawBolnavPe(g, cx, cy, sc, o){
   g.save(); g.translate(cx, cy); g.scale(sc, sc);
   g.lineWidth = 2.5; g.strokeStyle = INK; g.lineJoin = 'round';
   const w = 40, h = jos ? 30 : 36;
+  const ing = !!o.inger;
+  if(ing){
+    /* aripioare in spatele corpului, bat usor din ele */
+    const bat = Math.sin(b.t * 3.2) * 0.2;
+    g.fillStyle = '#FFFFFF';
+    for(const sx of [-1, 1]){
+      g.save(); g.translate(sx * (w/2 - 3), -4); g.rotate(sx * (0.55 + bat));
+      g.beginPath(); g.ellipse(0, -13, 8, 15, 0, 0, 7); g.fill(); g.stroke();
+      g.restore();
+    }
+  }
 
   /* picioruse */
-  g.fillStyle = '#7FA88A';
+  g.fillStyle = ing ? '#F6E7B8' : '#7FA88A';
   for(const px of [-11, 4]){
     const ph = jos ? 4 : 5 + Math.abs(Math.sin(b.t * 2.4 + (px < 0 ? 0 : 1.6))) * 5;
     rr(g, px, h/2 - 3, 7, ph, 3); g.fill(); g.stroke();
@@ -2943,8 +3148,8 @@ function drawBolnavPe(g, cx, cy, sc, o){
   g.quadraticCurveTo(w/2 - 1, -h/2 - 6, w/2 - 3, h/2 - 2);
   g.closePath();
   const gr = g.createLinearGradient(0, -h/2, 0, h/2);
-  gr.addColorStop(0, ['#C9DCC6','#CFD3E8','#DCD2C0'][b.hue]);
-  gr.addColorStop(1, ['#8FB295','#A6A8C8','#B8AA8E'][b.hue]);
+  gr.addColorStop(0, (ing ? ['#FFF4F8','#F4FBFF','#FFFBE6'] : ['#C9DCC6','#CFD3E8','#DCD2C0'])[b.hue]);
+  gr.addColorStop(1, (ing ? ['#F7C6DA','#B9DDF2','#F7E39A'] : ['#8FB295','#A6A8C8','#B8AA8E'])[b.hue]);
   g.fillStyle = gr; g.fill(); g.stroke();
 
   /* pete de la prea multe dulciuri — cate una pentru fiecare bomboana mancata */
@@ -2954,18 +3159,22 @@ function drawBolnavPe(g, cx, cy, sc, o){
     g.arc(-13 + i*7, -2 + ((i % 2) ? 7 : -6), 3.6, 0, 7); g.fill();
   }
 
-  /* ochi cazuti */
+  /* ochi cazuti (la ingerasi: ochi larg deschisi, vii) */
   for(const ex of [-8, 8]){
-    g.beginPath(); g.arc(ex, -9, 6, 0, 7);
+    g.beginPath(); g.arc(ex, -9, ing ? 5.5 : 6, 0, 7);
     g.fillStyle = '#FFF7EC'; g.fill(); g.lineWidth = 2.2; g.stroke();
-    g.beginPath(); g.arc(ex, -7.5, 2.5, 0, 7); g.fillStyle = INK; g.fill();
+    g.beginPath(); g.arc(ex, ing ? -9 : -7.5, 2.5, 0, 7); g.fillStyle = INK; g.fill();
+    if(ing){
+      g.beginPath(); g.arc(ex + 0.9, -10, 0.9, 0, 7); g.fillStyle = '#FFF7EC'; g.fill();
+      continue;
+    }
     /* pleoapa, ca sa para obosit */
     g.strokeStyle = INK; g.lineWidth = 2.2;
     g.beginPath(); g.moveTo(ex - 6, -13); g.lineTo(ex + 5, -11); g.stroke();
   }
 
   /* lacrima */
-  if(b.plans || jos){
+  if(!ing && (b.plans || jos)){
     const t = (tick * 0.05 + b.x * 0.01) % 1;
     g.beginPath();
     g.moveTo(-9, -4 + t*16); g.quadraticCurveTo(-6, -1 + t*16, -9, 2 + t*16);
@@ -2975,14 +3184,39 @@ function drawBolnavPe(g, cx, cy, sc, o){
     g.lineWidth = 1.4; g.strokeStyle = 'rgba(46,36,56,.5)'; g.stroke();
   }
 
-  /* gurita trista */
+  /* gurita trista; la ingerasi zambet, sau gura deschisa cand canta */
   g.lineWidth = 2.4; g.strokeStyle = INK;
-  g.beginPath(); g.moveTo(-5, 8); g.quadraticCurveTo(0, 3, 5, 8); g.stroke();
+  if(ing && o.sing){
+    g.beginPath(); g.ellipse(0, 7, 3.6, 4.2, 0, 0, 7); g.fillStyle = '#C4566A'; g.fill(); g.stroke();
+  }else if(ing){
+    g.beginPath(); g.arc(0, 4, 5.5, 0.15, Math.PI - 0.15); g.stroke();
+  }else{
+    g.beginPath(); g.moveTo(-5, 8); g.quadraticCurveTo(0, 3, 5, 8); g.stroke();
+  }
 
   /* labuta pe burtica */
   if(jos){
     g.beginPath(); g.arc(9, 4, 5, 0, 7);
     g.fillStyle = '#7FA88A'; g.fill(); g.stroke();
+  }
+  if(ing){
+    /* aureola, cu o lumina moale in jurul ei, si o manuta care face cu mana */
+    const hy = -h/2 - 14 + Math.sin(b.t * 2) * 1.5;
+    const gl = g.createRadialGradient(0, hy, 2, 0, hy, 26);
+    gl.addColorStop(0, 'rgba(255,240,150,.55)'); gl.addColorStop(1, 'rgba(255,240,150,0)');
+    g.fillStyle = gl; g.fillRect(-28, hy - 28, 56, 56);
+    g.lineWidth = 5.4; g.strokeStyle = INK;
+    g.beginPath(); g.ellipse(0, hy, 11, 3.6, 0, 0, 7); g.stroke();
+    g.lineWidth = 3; g.strokeStyle = '#FFD447';
+    g.beginPath(); g.ellipse(0, hy, 11, 3.6, 0, 0, 7); g.stroke();
+    if(o.wave){
+      const ex = w/2 + 7, ey = -12 + Math.sin(b.t * 6) * 4;
+      g.lineCap = 'round';
+      g.lineWidth = 8; g.strokeStyle = INK;
+      g.beginPath(); g.moveTo(w/2 - 4, 2); g.lineTo(ex, ey); g.stroke();
+      g.lineWidth = 4.6; g.strokeStyle = ['#F7C6DA','#B9DDF2','#F7E39A'][b.hue];
+      g.beginPath(); g.moveTo(w/2 - 4, 2); g.lineTo(ex, ey); g.stroke();
+    }
   }
   g.restore();
 }
@@ -3295,7 +3529,262 @@ function drawCandy(L){
   g.restore();
 }
 
+/* ---------------- raiul (nivelul 12) ----------------
+   Fara pamant: cer pastel, raze aurii, norisori pe care sari. Jos de tot, un nor
+   mare si moale o arunca inapoi sus. */
+function drawHalo(c, x, y){
+  c.save();
+  c.lineWidth = 5.4; c.strokeStyle = INK;
+  c.beginPath(); c.ellipse(x, y, 11, 3.6, 0, 0, 7); c.stroke();
+  c.lineWidth = 3; c.strokeStyle = '#FFD447';
+  c.beginPath(); c.ellipse(x, y, 11, 3.6, 0, 0, 7); c.stroke();
+  c.restore();
+}
+
+function drawHeaven(L){
+  const sky = g.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#CFE6FA'); sky.addColorStop(0.55, '#F8E6F4'); sky.addColorStop(1, '#FFF1D6');
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+
+  /* lumina de sus si razele ei, care se leagana foarte incet */
+  const ox = W * 0.68, oy = -30;
+  const glow = g.createRadialGradient(ox, oy, 10, ox, oy, 560);
+  glow.addColorStop(0, 'rgba(255,244,190,.95)'); glow.addColorStop(1, 'rgba(255,244,190,0)');
+  g.fillStyle = glow; g.fillRect(0, 0, W, H);
+  for(let i = 0; i < 9; i++){
+    const a = Math.PI/2 + (i - 4) * 0.21 + Math.sin(tick * 0.004 + i * 1.3) * 0.05;
+    g.fillStyle = 'rgba(255,236,160,' + (0.13 + 0.06 * Math.sin(tick * 0.012 + i)).toFixed(3) + ')';
+    g.beginPath(); g.moveTo(ox, oy);
+    g.lineTo(ox + Math.cos(a - 0.05) * 1000, oy + Math.sin(a - 0.05) * 1000);
+    g.lineTo(ox + Math.cos(a + 0.05) * 1000, oy + Math.sin(a + 0.05) * 1000);
+    g.closePath(); g.fill();
+  }
+
+  /* norisori de departe, doua straturi */
+  for(let layer = 0; layer < 2; layer++){
+    const sp = layer ? 0.28 : 0.14, step = layer ? 260 : 340;
+    g.fillStyle = layer ? 'rgba(255,255,255,.62)' : 'rgba(255,255,255,.42)';
+    for(let i = -1; i < 6; i++){
+      const x = i * step - ((cam * sp) % step);
+      puff(g, x + 80, (layer ? 150 : 96) + ((i * 53 + layer * 17) % 70), layer ? 46 : 36);
+    }
+  }
+  /* sclipiri */
+  for(let i = 0; i < 26; i++){
+    const a = 0.25 + 0.75 * Math.abs(Math.sin(tick * 0.03 + i * 1.9));
+    g.fillStyle = 'rgba(255,255,255,' + a.toFixed(2) + ')';
+    sparkle(g, (i * 211 + 40) % W, (i * 97 + 20) % 330, 3 + (i % 3));
+  }
+
+  /* norul mare si moale de jos: cine cade aici e aruncat inapoi sus */
+  const cy = L.groundY + 30, r = 34;
+  const bt = L.bounceT > 0 ? L.bounceT / 26 : 0;
+  const x0 = -((cam % (r * 2))) - r * 2;
+  g.beginPath();
+  g.moveTo(x0, H + 20);
+  const pts = [];
+  for(let x = x0; x < W + r * 2; x += r * 2){
+    const cx = x + r;
+    const dip = bt * 12 * Math.max(0, 1 - Math.abs(cx + cam - L.bounceX) / 260);
+    pts.push([cx, cy + dip]);
+  }
+  g.lineTo(x0, pts[0][1]);
+  for(const q of pts) g.arc(q[0], q[1], r, Math.PI, Math.PI * 2);
+  g.lineTo(W + r * 2, H + 20); g.closePath();
+  const nb = g.createLinearGradient(0, L.groundY - 4, 0, H);
+  nb.addColorStop(0, '#FFFFFF'); nb.addColorStop(1, '#FBD3E6');
+  g.fillStyle = nb; g.fill();
+  g.lineWidth = 2.4; g.strokeStyle = 'rgba(46,36,56,.55)';
+  g.beginPath(); g.moveTo(x0, pts[0][1]);
+  for(const q of pts) g.arc(q[0], q[1], r, Math.PI, Math.PI * 2);
+  g.stroke();
+}
+
+function drawCloudPlat(pl){
+  const x = pl.x, y = pl.y, w = pl.w, h = pl.h;
+  const n = Math.max(3, Math.round(w / 44)), s = w / n;
+  g.lineWidth = 2.4; g.strokeStyle = INK; g.fillStyle = '#FFFFFF';
+  for(let i = 0; i < n; i++){                   /* burtica de jos */
+    g.beginPath(); g.arc(x + (i + 0.5) * s, y + h - 2, 12, 0, 7); g.fill(); g.stroke();
+  }
+  for(let i = 0; i < n; i++){                   /* cocoasele de sus, mici ca sa nu urce piciorul */
+    g.beginPath(); g.arc(x + (i + 0.5) * s, y + 5, 13, 0, 7); g.fill(); g.stroke();
+  }
+  rr(g, x, y + 2, w, h - 4, 8);                 /* corpul acopera liniile dinauntru */
+  const gr = g.createLinearGradient(0, y, 0, y + h);
+  gr.addColorStop(0, '#FFFFFF'); gr.addColorStop(1, '#E4ECFB');
+  g.fillStyle = gr; g.fill();
+  g.lineWidth = 2.4; g.strokeStyle = INK;
+  g.beginPath(); g.moveTo(x, y + 6); g.lineTo(x, y + h - 6);
+  g.moveTo(x + w, y + 6); g.lineTo(x + w, y + h - 6); g.stroke();
+}
+
+function drawStage(L, T){
+  const st = L.stage, cx = st.x + st.w / 2, on = T > 60;
+  /* arcul de aur din spatele scenei */
+  g.save();
+  g.lineWidth = 12; g.strokeStyle = INK;
+  g.beginPath(); g.arc(cx, st.y, 236, Math.PI, 0); g.stroke();
+  g.lineWidth = 7; g.strokeStyle = '#FFD447';
+  g.beginPath(); g.arc(cx, st.y, 236, Math.PI, 0); g.stroke();
+  g.fillStyle = '#FFF7EC';
+  for(let i = 0; i <= 6; i++){
+    const a = Math.PI + i * Math.PI / 6;
+    sparkle(g, cx + Math.cos(a) * 236, st.y + Math.sin(a) * 236, 7 + (on ? 3 * Math.sin(T * 0.12 + i) : 0));
+  }
+  g.restore();
+  drawCloudPlat(st);
+  /* sirul de beculete de pe marginea scenei */
+  for(let i = 0; i < 14; i++){
+    const bx = st.x + 16 + i * (st.w - 32) / 13, by = st.y + 20;
+    g.beginPath(); g.arc(bx, by, 5.5, 0, 7);
+    g.fillStyle = on ? 'hsl(' + ((T * 5 + i * 40) % 360) + ',95%,62%)' : '#C9C3D8';
+    g.fill(); g.lineWidth = 1.8; g.strokeStyle = INK; g.stroke();
+  }
+}
+
+/* Un ingeras: aceleasi creaturi ca monstruletii bolnavi, dar cu aureola si
+   aripioare, bine-dispusi. Nu se ating de ea — sunt doar de privit. */
+function drawInger(a, o){
+  o = o || {};
+  drawBolnavPe(g, a.x, a.y, 1.08, {
+    inger:true, hue:a.hue, faza:a.t, wave:!!a.wave, sing:!!o.sing
+  });
+}
+
+function drawInstr(kind, x, y, T){
+  g.save(); g.lineWidth = 2; g.strokeStyle = INK; g.lineJoin = 'round';
+  if(kind === 'harp'){
+    g.beginPath(); g.moveTo(x - 22, y + 18); g.quadraticCurveTo(x - 34, y - 14, x - 12, y - 18);
+    g.lineTo(x - 12, y + 18); g.closePath();
+    g.fillStyle = '#FFD447'; g.fill(); g.stroke();
+    g.lineWidth = 1.3;
+    for(let k = 0; k < 4; k++){
+      g.beginPath(); g.moveTo(x - 15 - k * 4.5, y + 16 - k * 1.5); g.lineTo(x - 15 - k * 4.5, y - 12 + k * 3); g.stroke();
+    }
+  }else if(kind === 'horn'){
+    g.beginPath(); g.moveTo(x + 8, y + 6); g.lineTo(x + 30, y - 6); g.lineTo(x + 30, y + 18); g.closePath();
+    g.fillStyle = '#FFD447'; g.fill(); g.stroke();
+  }else if(kind === 'bells'){
+    const sh = Math.sin(T * 0.45) * 3;
+    g.beginPath(); g.arc(x + 20, y + 10 + sh, 8, 0, 7); g.fillStyle = '#FFD447'; g.fill(); g.stroke();
+    g.beginPath(); g.arc(x + 20, y + 10 + sh, 2.4, 0, 7); g.fillStyle = INK; g.fill();
+  }else if(kind === 'drum'){
+    const bat = Math.abs(Math.sin(T * 0.3)) * 4;
+    rr(g, x - 14, y + 18 + bat, 28, 15, 5); g.fillStyle = '#F58BB0'; g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(x + 14, y + 8); g.lineTo(x + 5, y + 18 + bat); g.stroke();
+  }
+  g.restore();
+}
+
+/* Scena, pe cat se vede din ecran: aceleasi locuri pentru toti ingerasii. */
+const INSTR = ['harp', 'horn', 'sing', 'bells', 'drum', 'sing', 'harp', 'horn',
+               'sing', 'bells', 'horn', 'sing', 'harp', 'bells', 'sing', 'drum'];
+const SLOT_A = [4915, 4960, 5005, 5050, 5145, 5190, 5235, 5280];
+function ingerAt(L, i, T){
+  const fx = i < 8 ? SLOT_A[i] : 4930 + (i - 8) * 50, fy = i < 8 ? 324 : 262;
+  const sx = (L.len - W) + 40 + (i * 67) % (W - 80), sy = -70;
+  const k = clamp((T - 62 - i * 4) / 80, 0, 1), e = 1 - Math.pow(1 - k, 3);
+  const calm = k >= 1 ? 1 : 0;
+  return { k:k,
+           x: sx + (fx - sx) * e + calm * Math.sin(T * 0.05 + i) * 3,
+           y: sy + (fy - sy) * e + calm * Math.sin(T * 0.07 + i * 1.3) * 5 };
+}
+
+function renderConcert(){
+  const L = LEVELS[levelIdx], T = concertT;
+  g.clearRect(0, 0, W, H);
+  drawHeaven(L);
+  /* seara se lasa: pe un cer luminos, luminile colorate nu s-ar vedea */
+  g.fillStyle = 'rgba(28,18,66,' + (0.64 * clamp(T / 60, 0, 1)).toFixed(3) + ')';
+  g.fillRect(0, 0, W, H);
+
+  g.save(); g.translate(-cam, 0);
+  for(const pl of L.platforms){
+    if(pl === L.stage || pl.x + pl.w < cam - 60 || pl.x > cam + W + 60) continue;
+    drawCloudPlat(pl);
+  }
+  if(T > 60){                                     /* aura din spatele scenei */
+    const sc = L.stage.x + L.stage.w / 2;
+    g.save(); g.globalCompositeOperation = 'lighter';
+    const gl = g.createRadialGradient(sc, 300, 10, sc, 300, 330);
+    gl.addColorStop(0, 'hsla(' + ((T * 3) % 360) + ',95%,62%,.55)');
+    gl.addColorStop(1, 'hsla(' + ((T * 3 + 90) % 360) + ',95%,60%,0)');
+    g.fillStyle = gl; g.fillRect(sc - 340, 0, 680, 480);
+    g.restore();
+  }
+  drawStage(L, T);
+  /* randul din spate intai */
+  for(let i = L.ingeri.length - 1; i >= 0; i--){
+    const q = ingerAt(L, i, T);
+    if(q.k <= 0) continue;
+    const a = { x:q.x, y:q.y, hue:L.ingeri[i].hue, t:i + T * 0.06, wave:q.k >= 1 && i % 3 === 0 };
+    const kind = INSTR[i % INSTR.length];
+    if(kind !== 'sing') drawInstr(kind, a.x, a.y, T);
+    drawInger(a, { sing: kind === 'sing' && q.k >= 1 });
+  }
+  const p = player;
+  drawGirl(g, look, {
+    x: p.x + p.w/2, y: p.y + p.h + 4, face: 1, scale: 0.92,
+    legs: 0, arms: T * 0.34, sup: false, speed: 0, mood: 'wow', blink: false, wing: T * 0.3
+  });
+  drawHalo(g, p.x + p.w/2, p.y - 10);
+  g.font = '700 28px Fredoka, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  for(const q of notele){
+    g.globalAlpha = clamp(q.t / 30, 0, 1);
+    g.lineWidth = 4; g.strokeStyle = 'rgba(46,36,56,.55)'; g.strokeText(q.txt, q.x, q.y);
+    g.fillStyle = q.col; g.fillText(q.txt, q.x, q.y);
+  }
+  g.globalAlpha = 1;
+  g.restore();
+
+  if(T > 60){
+    /* reflectoare colorate care se plimba peste scena */
+    g.save(); g.globalCompositeOperation = 'lighter';
+    const sc = L.stage.x + L.stage.w / 2 - cam;
+    for(let i = 0; i < 5; i++){
+      const ox = 90 + i * 195, hue = (T * 3 + i * 72) % 360;
+      const tx = sc + Math.sin(T * 0.028 + i * 1.35) * 250, ty = 400;
+      const bm = g.createLinearGradient(ox, -10, tx, ty);
+      bm.addColorStop(0, 'hsla(' + hue + ',100%,70%,.5)');
+      bm.addColorStop(1, 'hsla(' + hue + ',100%,60%,.04)');
+      g.fillStyle = bm;
+      g.beginPath(); g.moveTo(ox - 7, -10); g.lineTo(ox + 7, -10);
+      g.lineTo(tx + 80, ty); g.lineTo(tx - 80, ty); g.closePath(); g.fill();
+    }
+    /* stelute care sclipesc peste tot */
+    for(let i = 0; i < 44; i++){
+      const a = Math.abs(Math.sin(T * 0.07 + i * 2.3));
+      g.fillStyle = 'hsla(' + ((i * 47 + T * 2) % 360) + ',100%,78%,' + a.toFixed(2) + ')';
+      sparkle(g, (i * 157 + 23) % W, (i * 89 + 11) % (H - 70), 3 + (i % 4) * 1.5);
+    }
+    g.restore();
+    for(const c of confetti){
+      g.save(); g.translate(c.x, c.y); g.rotate(c.r);
+      g.fillStyle = c.col; g.fillRect(-c.s, -c.s * 0.5, c.s * 2, c.s);
+      g.restore();
+    }
+  }
+  /* sclipirea de la inceput: "dintr-o data" */
+  if(T >= 60 && T < 90){
+    g.fillStyle = 'rgba(255,255,255,' + (0.9 * (1 - (T - 60) / 30)).toFixed(3) + ')';
+    g.fillRect(0, 0, W, H);
+  }
+  g.save();
+  g.font = '700 30px Fredoka, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.lineWidth = 6; g.strokeStyle = 'rgba(46,36,56,.85)';
+  let cap = null, ca = 1;
+  if(T >= 70 && T < 300){ cap = 'Dintr-o dată… începe concertul îngerașilor! ✨'; ca = clamp((300 - T) / 40, 0, 1); }
+  else if(T >= 800){ cap = 'Bravo, Anabelle! 🎉'; ca = clamp((T - 800) / 30, 0, 1); }
+  if(cap){
+    g.globalAlpha = ca;
+    g.strokeText(cap, W / 2, 52); g.fillStyle = '#FFF3B0'; g.fillText(cap, W / 2, 52);
+  }
+  g.restore();
+}
+
 function drawBackdrop(L){
+  if(L.theme === 'heaven') return drawHeaven(L);
   if(L.theme === 'sky')    return drawSky(L);
   if(L.theme === 'candy')  return drawCandy(L);
   if(L.theme === 'town')   return drawTown(L);
@@ -3660,8 +4149,8 @@ function drawCastle(L){
 }
 
 function drawHUD(L){
-  /* inimi */
-  for(let i = 0; i < 3; i++){
+  /* inimi (in rai nu se pierd, deci nu se arata) */
+  for(let i = 0; i < (L.theme === 'heaven' ? 0 : 3); i++){
     const x = 22 + i*32, y = 26, on = i < player.hearts;
     g.save(); g.translate(x, y); g.scale(1.05, 1.05);
     g.beginPath();
@@ -3840,6 +4329,7 @@ function swimLook(){
 }
 
 function render(){
+  if(state === STATE.CONCERT) return renderConcert();
   const L = LEVELS[levelIdx];
   g.clearRect(0,0,W,H);
   drawBackdrop(L);
@@ -3854,6 +4344,7 @@ function render(){
   else if(L.theme === 'water')    drawTurtle(L);
   else if(L.mode === 'slide')     drawSlide(L);
   else if(L.mode === 'surf')      { /* raul e desenat in fundal */ }
+  else if(L.theme === 'heaven')   drawStage(L, 0);
   else                            drawGoal(L);
   if(L.ovenX) drawOven(L, L.baked);
   for(const r of L.roosters) if(r.x > cam - 80 && r.x < cam + W + 80) drawRooster(r);
@@ -3862,6 +4353,7 @@ function render(){
 
   for(const pl of L.platforms){
     if(pl.x + pl.w < cam - 60 || pl.x > cam + W + 60) continue;
+    if(L.theme === 'heaven'){ if(pl !== L.stage) drawCloudPlat(pl); continue; }
     rr(g, pl.x, pl.y, pl.w, pl.h, 7);
     g.fillStyle = L.theme === 'market' ? '#F7E4CC' : L.theme === 'forest' ? '#E9F5DA'
                 : L.theme === 'cave'   ? '#6A5A8E' : L.theme === 'river' ? '#C79A63'
@@ -3877,6 +4369,7 @@ function render(){
   for(const bo of L.bomboane){ if(!bo.got && !bo.mancata && bo.x > cam - 60 && bo.x < cam + W + 60) drawBomboana(bo); }
   for(const fr of L.fructe){ if(!fr.got && fr.x > cam - 60 && fr.x < cam + W + 60) drawFruct(fr); }
   for(const b of L.bolnavi){ if(b.x > cam - 90 && b.x < cam + W + 90) drawBolnav(b); }
+  if(L.theme === 'heaven') for(const a of L.ingeri){ if(a.x > cam - 60 && a.x < cam + W + 60) drawInger(a); }
   for(const c of L.coins){ if(!c.got && c.x > cam - 40 && c.x < cam + W + 40) drawCoin(c.x, c.y, tick*0.08 + c.x*0.02); }
   for(const m of L.monsters){ if(!m.dead && m.x < cam + W + 90 && m.x + m.w > cam - 90) drawMonster(m); }
   for(const mu of L.mushrooms){ if(!mu.got && mu.x > cam - 60 && mu.x < cam + W + 60) drawMushroom(mu, tick*0.06 + mu.x*0.01); }
@@ -3933,6 +4426,7 @@ function render(){
         blink: tick > p.blinkAt - 7 && tick < p.blinkAt,
         wing: L.mode === 'fly' ? tick * 0.55 : p.walk
       });
+      if(L.theme === 'heaven') drawHalo(g, p.x + p.w/2, p.y - 10);
     }
   }
 
@@ -3951,7 +4445,7 @@ function render(){
 }
 
 /* ---------------- alegerea nivelului ---------------- */
-const LEVEL_EMOJI = ['🛒','🛍️','🌲','☁️','🦇','🐢','🛝','🍕','🐊','🍭','🏥'];
+const LEVEL_EMOJI = ['🛒','🛍️','🌲','☁️','🦇','🐢','🛝','🍕','🐊','🍭','🏥','😇'];
 
 /* Cand sari direct la un nivel, ii dam ce ar fi trebuit sa aiba pana acolo:
    aripi de la vrajitor, torta de la foc, porcul de la cocosi. */
@@ -4014,8 +4508,8 @@ function showIntro(){
   openPanel(
     '<p class="eyebrow">Un joc gândit de Anabelle</p>' +
     '<h1>Aventura Anabellei</h1>' +
-    '<p class="lead">Unsprezece niveluri: strânge bănuți prin <b>supermarket</b> și cumpără-ți hăinuțe la croitorie, treci prin <b>galerie</b> până la salon, taie <b>pădurea</b> până la vrăjitor — el te face zână — <b>zboară prin nori</b> la castelul prințesei, intră în <b>peștera</b> cu lilieci, fă un foc, <b>înoată</b> până la țestoasa vorbitoare, alunecă pe <b>toboganul fermecat</b> drept într-o <b>pizzerie</b>, fă o pizza ca să momești cocoșii, ia-ți un <b>porc</b> și coboară <b>râul</b> pe placa de surf, sărind peste crocodili, apoi intră în <b>lumea dulciurilor</b>: sari peste crăpăturile de bomboană, fugi de monștrii cu mustață de vată de zahăr și alege-ți o <b>armă din dulce</b> — din care niște monstruleți o să ronțăie, o să se ' +
-    'îmbolnăvească, și o să trebuiască <b>duși la spital</b>.</p>' +
+    '<p class="lead">Douăsprezece niveluri: strânge bănuți prin <b>supermarket</b> și cumpără-ți hăinuțe la croitorie, treci prin <b>galerie</b> până la salon, taie <b>pădurea</b> până la vrăjitor — el te face zână — <b>zboară prin nori</b> la castelul prințesei, intră în <b>peștera</b> cu lilieci, fă un foc, <b>înoată</b> până la țestoasa vorbitoare, alunecă pe <b>toboganul fermecat</b> drept într-o <b>pizzerie</b>, fă o pizza ca să momești cocoșii, ia-ți un <b>porc</b> și coboară <b>râul</b> pe placa de surf, sărind peste crocodili, apoi intră în <b>lumea dulciurilor</b>: sari peste crăpăturile de bomboană, fugi de monștrii cu mustață de vată de zahăr și alege-ți o <b>armă din dulce</b> — din care niște monstruleți o să ronțăie, o să se ' +
+    'îmbolnăvească, și o să trebuiască <b>duși la spital</b>. Iar după spital te așteaptă <b>raiul</b>: norișori pe care sari, îngerași care îți fac cu mâna, și un <b>concert</b> cu tot felul de lumini.</p>' +
     '<div class="keys">' +
       '<span class="key">◀ ▶ mergi</span>' +
       '<span class="key">▲ / Spațiu sari — de două ori, sari mai sus</span>' +
@@ -4107,6 +4601,10 @@ function startLevel(i){
     b.sta = 0; b.plans = false; b.mancate = 0; b.iute = 0;
     b.x = 262 - k*56; b.y = LEVELS[i].groundY - 30;
   });
+  if(LEVELS[i].theme === 'heaven'){
+    resetHeaven(LEVELS[i]);
+    pops.push({x:90, y:300, txt:'Bine ai venit în rai!', t:140, col:'#7B5CD6'});
+  }
   LEVELS[i].collapsed = false; LEVELS[i].baked = false;
   (LEVELS[i].gaps || []).forEach(g => { g.caderi = 0; g.pod = false; });
   (LEVELS[i].pits || []).forEach(p => { p.caderi = 0; p.pod = false; });
@@ -4426,7 +4924,41 @@ function showDoctor(){
     '<p class="tiny">Dulciurile nu sunt otravă — dar nici mâncare. Puține, și rar.</p>'
   );
   deseneazaCabinet(document.getElementById('scena-doc').getContext('2d'));
-  document.getElementById('gata2').onclick = () => { look.fructe = true; showEnd(); };
+  document.getElementById('gata2').onclick = () => { look.fructe = true; showRai(); };
+  sfx.win();
+}
+
+/* Dupa spital: o clipa linistita, fara nimic trist. Monstruletii au ajuns in rai
+   si sunt ingerasi; fetita e cu ei. */
+function showRai(){
+  state = STATE.STORY;
+  openPanel(
+    '<p class="eyebrow">O lumină blândă…</p>' +
+    '<h2>Raiul ☁️</h2>' +
+    '<canvas id="scena-rai" width="560" height="240" style="width:min(100%,40cqw);height:auto;margin:.6cqw 0 1cqw"></canvas>' +
+    '<p class="lead">În cabinet s-a făcut tare liniște și tare cald. Din tavan a coborât ' +
+    'o lumină aurie, moale ca o pătură.</p>' +
+    '<p class="lead"><b>Monstruleții și fetița au ajuns în rai.</b> Acolo nu e pământ, doar ' +
+    'norișori pe care sari. Iar monstruleții nu mai sunt monstruleți: sunt <b>îngerași</b>, ' +
+    'cu aureolă și aripioare. Nu-i mai doare nimic.</p>' +
+    '<p class="lead">Îngerașii sunt prietenoși. Nu lovesc pe nimeni — îți fac cu mâna și ' +
+    'plutesc pe lângă tine.</p>' +
+    '<button class="btn" id="spre-rai" type="button">Hai la îngerași ☁️</button>' +
+    '<p class="tiny">Dacă pici printre nori, un nor mare și moale te aruncă înapoi sus. Nu pățești nimic.</p>'
+  );
+  const c = document.getElementById('scena-rai').getContext('2d');
+  const sky = c.createLinearGradient(0, 0, 0, 240);
+  sky.addColorStop(0, '#CFE6FA'); sky.addColorStop(0.6, '#F8E6F4'); sky.addColorStop(1, '#FFF1D6');
+  c.fillStyle = sky; c.fillRect(0, 0, 560, 240);
+  c.fillStyle = 'rgba(255,255,255,.85)';
+  puff(c, 90, 190, 46); puff(c, 270, 214, 60); puff(c, 470, 192, 48); puff(c, 380, 60, 30); puff(c, 120, 52, 26);
+  c.fillStyle = '#FFF7EC';
+  [[60,30],[210,60],[330,28],[520,64],[440,30],[250,16]].forEach(q => sparkle(c, q[0], q[1], 5));
+  [0, 1, 2].forEach(k => drawBolnavPe(c, 330 + k * 70, 150 - (k % 2) * 16, 1.5,
+                                      { inger:true, hue:k, faza:k * 1.3, wave:k !== 1 }));
+  drawGirl(c, look, { x:200, y:206, scale:1.9, face:1, sup:true, wing:2.2 });
+  drawHalo(c, 200, 206 - 66 * 1.9 * 0.92 - 4);
+  document.getElementById('spre-rai').onclick = () => startLevel(11);
   sfx.win();
 }
 
@@ -4439,13 +4971,14 @@ function showEnd(){
         arma = byId(ARME, look.arma);
   openPanel(
     '<p class="eyebrow">Sfârșitul aventurii — deocamdată</p>' +
-    '<h1>Uraaa, ai dus toți monstruleții la spital!</h1>' +
+    '<h1>Uraaa! Concertul îngerașilor a fost pentru tine!</h1>' +
     '<canvas id="fin-prev" width="220" height="270" style="width:16cqw;height:19.6cqw;margin-top:1.4cqw"></canvas>' +
     '<p class="lead">Ai fost curajoasă cu liliecii, ai făcut focul singură, ' +
       'te-ai împrietenit cu o țestoasă vorbitoare, ai făcut pizza ca să momești cocoșii, ' +
       'ți-ai luat un porc, ai coborât tot râul pe placa de surf sărind peste crocodili, ' +
       'și ai trecut lumea dulciurilor din capăt în capăt — peste crăpăturile de bomboană, ' +
-      'pe lângă monștrii cu mustață de vată.</p>' +
+      'pe lângă monștrii cu mustață de vată. Ai dus monstruleții la doctor, iar în rai ai sărit ' +
+      'din nor în nor printre îngerași, până la scena unde a început concertul, cu toate luminile.</p>' +
     '<p class="lead">Ai și <b>' + arma.name + '</b>, și o cutie cu fructe de la doctor. ' +
       'Ține-le bine: în aventura următoare o să ai monștri de bătut — și de hrănit ' +
       'cu ceva sănătos.</p>' +
@@ -4489,6 +5022,7 @@ function loop(now){
   while(acc >= STEP_MS && steps < 5){
     tick++;
     if(state === STATE.PLAY) step();
+    else if(state === STATE.CONCERT) stepConcert();
     acc -= STEP_MS;
     steps++;
   }
